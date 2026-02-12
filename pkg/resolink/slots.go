@@ -1,80 +1,150 @@
 package resolink
 
-import "fmt"
-
-// AddSlot creates a new slot under the specified parent
-func (c *Client) AddSlot(parentID, name string) (string, error) {
-	data := map[string]interface{}{
-		"parentId": parentID,
-		"name":     name,
-	}
-
-	resp, err := c.SendRequest("addSlot", data)
-	if err != nil {
-		return "", err
-	}
-
-	slotID, err := resp.GetString("slotId")
-	if err != nil {
-		return "", fmt.Errorf("invalid response: %w", err)
-	}
-
-	return slotID, nil
-}
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // GetSlot retrieves slot information
-func (c *Client) GetSlot(slotID string, includeComponents bool) (*Response, error) {
-	data := map[string]interface{}{
-		"slotId": slotID,
+func (c *Client) GetSlot(slotID string, includeComponents bool, depth int) (*SlotDataResponse, error) {
+	msg := &GetSlotMessage{
+		BaseMessage: BaseMessage{
+			Type: "getSlot",
+		},
+		SlotID:               slotID,
+		IncludeComponentData: includeComponents,
+		Depth:                depth,
 	}
 
-	if includeComponents {
-		data["includeComponentData"] = true
+	rawResp, err := c.sendMessage(msg)
+	if err != nil {
+		return nil, err
 	}
 
-	return c.SendRequest("getSlot", data)
+	// Check for error response first
+	var errResp ErrorResponse
+	if err := json.Unmarshal(rawResp, &errResp); err == nil && errResp.Error != "" {
+		return nil, fmt.Errorf("server error: %s", errResp.Error)
+	}
+
+	// Parse as slot data response
+	var resp SlotDataResponse
+	if err := json.Unmarshal(rawResp, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &resp, nil
+}
+
+// AddSlot creates a new slot under the specified parent
+func (c *Client) AddSlot(data *SlotDefinition) (*SlotDataResponse, error) {
+	msg := &AddSlotMessage{
+		BaseMessage: BaseMessage{
+			Type: "addSlot",
+		},
+		Data: data,
+	}
+
+	rawResp, err := c.sendMessage(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for error response
+	var errResp ErrorResponse
+	if err := json.Unmarshal(rawResp, &errResp); err == nil && errResp.Error != "" {
+		return nil, fmt.Errorf("server error: %s", errResp.Error)
+	}
+
+	// Parse response
+	var resp SlotDataResponse
+	if err := json.Unmarshal(rawResp, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &resp, nil
 }
 
 // UpdateSlot updates slot properties
-func (c *Client) UpdateSlot(slotID string, properties map[string]interface{}) error {
-	data := map[string]interface{}{
-		"slotId": slotID,
+func (c *Client) UpdateSlot(data *SlotDefinition) error {
+	if data.ID == "" {
+		return fmt.Errorf("slot ID is required for update")
 	}
 
-	// Merge properties into data
-	for k, v := range properties {
-		data[k] = v
+	msg := &UpdateSlotMessage{
+		BaseMessage: BaseMessage{
+			Type: "updateSlot",
+		},
+		Data: data,
 	}
 
-	_, err := c.SendRequest("updateSlot", data)
-	return err
+	rawResp, err := c.sendMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	// Check for error response
+	var errResp ErrorResponse
+	if err := json.Unmarshal(rawResp, &errResp); err == nil && errResp.Error != "" {
+		return fmt.Errorf("server error: %s", errResp.Error)
+	}
+
+	return nil
 }
 
 // RemoveSlot deletes a slot
 func (c *Client) RemoveSlot(slotID string) error {
-	data := map[string]interface{}{
-		"slotId": slotID,
+	msg := &RemoveSlotMessage{
+		BaseMessage: BaseMessage{
+			Type: "removeSlot",
+		},
+		SlotID: slotID,
 	}
 
-	_, err := c.SendRequest("removeSlot", data)
-	return err
+	rawResp, err := c.sendMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	// Check for error response
+	var errResp ErrorResponse
+	if err := json.Unmarshal(rawResp, &errResp); err == nil && errResp.Error != "" {
+		return fmt.Errorf("server error: %s", errResp.Error)
+	}
+
+	return nil
 }
 
-// FindSlotByName searches for a slot by name
-func (c *Client) FindSlotByName(parentID, name string) (*Response, error) {
-	data := map[string]interface{}{
-		"parentId": parentID,
-		"name":     name,
+// FindSlotByName searches for a slot by name (helper method)
+// This is a convenience method that gets a slot and searches its children
+func (c *Client) FindSlotByName(parentID, name string) (*SlotDefinition, error) {
+	// Get parent slot with children (depth 1)
+	resp, err := c.GetSlot(parentID, false, 1)
+	if err != nil {
+		return nil, err
 	}
 
-	return c.SendRequest("findSlotByName", data)
+	// Search children for matching name
+	for _, child := range resp.Data.Children {
+		if child.Name == name {
+			// Get full slot data
+			childResp, err := c.GetSlot(child.ID, false, 0)
+			if err != nil {
+				return nil, err
+			}
+			return childResp.Data, nil
+		}
+	}
+
+	return nil, fmt.Errorf("slot with name '%s' not found", name)
 }
 
-// ListChildren lists all child slots of a parent
-func (c *Client) ListChildren(parentID string) (*Response, error) {
-	data := map[string]interface{}{
-		"slotId": parentID,
+// ListChildren lists all child slots of a parent (helper method)
+func (c *Client) ListChildren(parentID string) ([]SlotReference, error) {
+	resp, err := c.GetSlot(parentID, false, 1)
+	if err != nil {
+		return nil, err
 	}
 
-	return c.SendRequest("listChildren", data)
+	return resp.Data.Children, nil
 }

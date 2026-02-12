@@ -1,6 +1,7 @@
 package resolink
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -14,24 +15,18 @@ type Client struct {
 	url             string
 	conn            *websocket.Conn
 	timeout         time.Duration
-	pendingRequests map[string]chan *Response
+	pendingRequests map[string]chan json.RawMessage
 	mu              sync.RWMutex
 	closed          bool
+	reconnect       bool
+	reconnectDelay  time.Duration
 }
 
-// Message represents a ResoLink protocol message
-type Message struct {
-	MessageID string                 `json:"messageId"`
-	Type      string                 `json:"type"`
-	Data      map[string]interface{} `json:"data,omitempty"`
-}
-
-// Response represents a ResoLink response
-type Response struct {
-	MessageID string                 `json:"messageId"`
-	Type      string                 `json:"type"`
-	Data      map[string]interface{} `json:"data,omitempty"`
-	Error     string                 `json:"error,omitempty"`
+// RawResponse is the minimal response structure for routing
+type RawResponse struct {
+	MessageID string          `json:"messageId"`
+	Type      string          `json:"$type"`
+	RawData   json.RawMessage `json:"-"`
 }
 
 // NewClient creates a new ResoLink client
@@ -39,8 +34,18 @@ func NewClient(url string, timeout time.Duration) *Client {
 	return &Client{
 		url:             url,
 		timeout:         timeout,
-		pendingRequests: make(map[string]chan *Response),
+		pendingRequests: make(map[string]chan json.RawMessage),
+		reconnect:       true,
+		reconnectDelay:  5 * time.Second,
 	}
+}
+
+// SetReconnect enables or disables automatic reconnection
+func (c *Client) SetReconnect(enabled bool, delay time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.reconnect = enabled
+	c.reconnectDelay = delay
 }
 
 // Connect establishes WebSocket connection to Resonite
@@ -74,7 +79,7 @@ func (c *Client) Disconnect() error {
 	for _, ch := range c.pendingRequests {
 		close(ch)
 	}
-	c.pendingRequests = make(map[string]chan *Response)
+	c.pendingRequests = make(map[string]chan json.RawMessage)
 
 	if c.conn != nil {
 		return c.conn.Close()
@@ -83,17 +88,17 @@ func (c *Client) Disconnect() error {
 	return nil
 }
 
-// SendRequest sends a request and waits for response
-func (c *Client) SendRequest(msgType string, data map[string]interface{}) (*Response, error) {
+// sendMessage sends a message struct and waits for raw response
+func (c *Client) sendMessage(msg interface{}) (json.RawMessage, error) {
 	if c.closed {
 		return nil, fmt.Errorf("client is closed")
 	}
 
-	// Generate unique message ID
+	// Extract or generate message ID
 	msgID := uuid.New().String()
 
 	// Create response channel
-	respChan := make(chan *Response, 1)
+	respChan := make(chan json.RawMessage, 1)
 	c.mu.Lock()
 	c.pendingRequests[msgID] = respChan
 	c.mu.Unlock()
@@ -105,11 +110,30 @@ func (c *Client) SendRequest(msgType string, data map[string]interface{}) (*Resp
 		c.mu.Unlock()
 	}()
 
-	// Construct message
-	msg := Message{
-		MessageID: msgID,
-		Type:      msgType,
-		Data:      data,
+	// Set message ID on the struct
+	switch m := msg.(type) {
+	case *GetSlotMessage:
+		m.MessageID = msgID
+	case *AddSlotMessage:
+		m.MessageID = msgID
+	case *UpdateSlotMessage:
+		m.MessageID = msgID
+	case *RemoveSlotMessage:
+		m.MessageID = msgID
+	case *GetComponentMessage:
+		m.MessageID = msgID
+	case *AddComponentMessage:
+		m.MessageID = msgID
+	case *UpdateComponentMessage:
+		m.MessageID = msgID
+	case *RemoveComponentMessage:
+		m.MessageID = msgID
+	case *GetComponentTypeListMessage:
+		m.MessageID = msgID
+	case *GetComponentDefinitionMessage:
+		m.MessageID = msgID
+	default:
+		return nil, fmt.Errorf("unsupported message type")
 	}
 
 	// Send message
@@ -122,9 +146,6 @@ func (c *Client) SendRequest(msgType string, data map[string]interface{}) (*Resp
 	case resp := <-respChan:
 		if resp == nil {
 			return nil, fmt.Errorf("connection closed")
-		}
-		if resp.Error != "" {
-			return nil, fmt.Errorf("server error: %s", resp.Error)
 		}
 		return resp, nil
 	case <-time.After(c.timeout):
@@ -139,21 +160,30 @@ func (c *Client) handleResponses() {
 	}()
 
 	for {
-		var resp Response
-		err := c.conn.ReadJSON(&resp)
+		// Read raw message
+		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			// Connection closed
 			return
 		}
 
+		// Parse minimal response to get messageId
+		var rawResp RawResponse
+		if err := json.Unmarshal(message, &rawResp); err != nil {
+			continue // Skip malformed messages
+		}
+
+		// Store the raw data for later parsing
+		rawResp.RawData = message
+
 		// Route response to waiting request
 		c.mu.RLock()
-		respChan, exists := c.pendingRequests[resp.MessageID]
+		respChan, exists := c.pendingRequests[rawResp.MessageID]
 		c.mu.RUnlock()
 
 		if exists {
 			select {
-			case respChan <- &resp:
+			case respChan <- message:
 			default:
 				// Channel full or closed
 			}
@@ -161,27 +191,9 @@ func (c *Client) handleResponses() {
 	}
 }
 
-// Helper method to convert response data to specific types
-func (r *Response) GetString(key string) (string, error) {
-	val, ok := r.Data[key]
-	if !ok {
-		return "", fmt.Errorf("key %s not found", key)
-	}
-	str, ok := val.(string)
-	if !ok {
-		return "", fmt.Errorf("key %s is not a string", key)
-	}
-	return str, nil
-}
-
-func (r *Response) GetMap(key string) (map[string]interface{}, error) {
-	val, ok := r.Data[key]
-	if !ok {
-		return nil, fmt.Errorf("key %s not found", key)
-	}
-	m, ok := val.(map[string]interface{})
-	if !ok {
-		return nil, fmt.Errorf("key %s is not a map", key)
-	}
-	return m, nil
+// IsConnected returns whether the client is connected
+func (c *Client) IsConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.conn != nil && !c.closed
 }
