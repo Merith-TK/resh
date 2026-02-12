@@ -1,0 +1,32 @@
+# resonite-sh
+
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output binaries
+bin/
+dist/
+
+# Go workspace file
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config
+.resonite-sh/
+!.resonite-sh/config.example.yaml

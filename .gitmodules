@@ -1,0 +1,3 @@
+[submodule "submodules/ResoniteLink"]
+	path = submodules/ResoniteLink
+	url = https://github.com/Yellow-Dog-Man/ResoniteLink

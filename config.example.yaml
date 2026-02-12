@@ -1,0 +1,32 @@
+# resonite-sh Configuration Example
+
+# Connection settings
+connection:
+  url: ws://localhost:29551
+  timeout: 30s
+  reconnect: true
+  reconnect_interval: 5s
+
+# Cache settings
+cache:
+  enable: true
+  ttl: 5m
+
+# Editor settings
+editor:
+  # Command to use for editing (defaults to $EDITOR environment variable)
+  # command: code
+  # Format for property editing: yaml or json
+  format: yaml
+
+# UI settings
+ui:
+  # Prompt format (%p = current path)
+  prompt: "resonite:%p> "
+  # Enable colors in output
+  colors: true
+
+# History settings
+history:
+  size: 1000
+  # file: ~/.resonite-sh/history
