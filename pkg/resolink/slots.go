@@ -21,16 +21,15 @@ func (c *Client) GetSlot(slotID string, includeComponents bool, depth int) (*Slo
 		return nil, err
 	}
 
-	// Check for error response first
-	var errResp ErrorResponse
-	if err := json.Unmarshal(rawResp, &errResp); err == nil && errResp.Error != "" {
-		return nil, fmt.Errorf("server error: %s", errResp.Error)
-	}
-
 	// Parse as slot data response
 	var resp SlotDataResponse
 	if err := json.Unmarshal(rawResp, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Check for error
+	if !resp.Success {
+		return nil, fmt.Errorf("slot operation failed: %s", resp.ErrorInfo)
 	}
 
 	return &resp, nil
@@ -126,7 +125,7 @@ func (c *Client) FindSlotByName(parentID, name string) (*SlotDefinition, error) 
 
 	// Search children for matching name
 	for _, child := range resp.Data.Children {
-		if child.Name == name {
+		if child.Name != nil && child.Name.Value == name {
 			// Get full slot data
 			childResp, err := c.GetSlot(child.ID, false, 0)
 			if err != nil {

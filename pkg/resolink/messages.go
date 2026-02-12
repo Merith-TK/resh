@@ -1,5 +1,7 @@
 package resolink
 
+import "encoding/json"
+
 // Message types for ResoniteLink protocol
 // Based on official C# implementation
 
@@ -147,10 +149,21 @@ type ComponentReference struct {
 	ComponentType string `json:"componentType"`
 }
 
-// SlotReference is a reference to a slot
+// SlotReference is a reference to a slot in responses (with full data structure)
 type SlotReference struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID              string          `json:"id"`
+	Parent          *ValueReference `json:"parent,omitempty"`
+	Position        *ValueFloat3    `json:"position,omitempty"`
+	Rotation        *ValueFloatQ    `json:"rotation,omitempty"`
+	Scale           *ValueFloat3    `json:"scale,omitempty"`
+	IsActive        *ValueBool      `json:"isActive,omitempty"`
+	IsPersistent    *ValueBool      `json:"isPersistent,omitempty"`
+	Name            *ValueString    `json:"name,omitempty"`
+	Tag             *ValueString    `json:"tag,omitempty"`
+	OrderOffset     *ValueLong      `json:"orderOffset,omitempty"`
+	Components      json.RawMessage `json:"components,omitempty"` // Can be null or array
+	Children        json.RawMessage `json:"children,omitempty"`   // Can be null or array
+	IsReferenceOnly bool            `json:"isReferenceOnly"`
 }
 
 // ============================================================================
@@ -305,17 +318,23 @@ func NewValueColor(r, g, b, a float64) *ValueColor {
 
 // SlotDataResponse is the response for getSlot
 type SlotDataResponse struct {
-	MessageID string          `json:"messageId"`
-	Type      string          `json:"$type"`
-	Depth     int             `json:"depth"`
-	Data      *SlotDefinition `json:"data"`
+	SourceMessageID string          `json:"sourceMessageId"`
+	MessageID       string          `json:"messageId"`
+	Type            string          `json:"$type"`
+	Depth           int             `json:"depth"`
+	Data            *SlotDefinition `json:"data"`
+	Success         bool            `json:"success"`
+	ErrorInfo       string          `json:"errorInfo,omitempty"`
 }
 
 // ComponentDataResponse is the response for getComponent
 type ComponentDataResponse struct {
-	MessageID string               `json:"messageId"`
-	Type      string               `json:"$type"`
-	Data      *ComponentDefinition `json:"data"`
+	SourceMessageID string               `json:"sourceMessageId"`
+	MessageID       string               `json:"messageId"`
+	Type            string               `json:"$type"`
+	Data            *ComponentDefinition `json:"data"`
+	Success         bool                 `json:"success"`
+	ErrorInfo       string               `json:"errorInfo,omitempty"`
 }
 
 // ComponentTypeListResponse is the response for getComponentTypeList

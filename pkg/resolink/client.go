@@ -24,9 +24,10 @@ type Client struct {
 
 // RawResponse is the minimal response structure for routing
 type RawResponse struct {
-	MessageID string          `json:"messageId"`
-	Type      string          `json:"$type"`
-	RawData   json.RawMessage `json:"-"`
+	SourceMessageID string          `json:"sourceMessageId"`
+	MessageID       string          `json:"messageId"` // For requests
+	Type            string          `json:"$type"`
+	RawData         json.RawMessage `json:"-"`
 }
 
 // NewClient creates a new ResoLink client
@@ -173,12 +174,18 @@ func (c *Client) handleResponses() {
 			continue // Skip malformed messages
 		}
 
+		// Use sourceMessageId for routing responses, or messageId for requests
+		routeID := rawResp.SourceMessageID
+		if routeID == "" {
+			routeID = rawResp.MessageID
+		}
+
 		// Store the raw data for later parsing
 		rawResp.RawData = message
 
 		// Route response to waiting request
 		c.mu.RLock()
-		respChan, exists := c.pendingRequests[rawResp.MessageID]
+		respChan, exists := c.pendingRequests[routeID]
 		c.mu.RUnlock()
 
 		if exists {
