@@ -1,0 +1,58 @@
+services:
+  resonite:
+    # build: .
+    image: git.merith.xyz/oci/resonite:nightly
+    container_name: resonite-link-testheadless
+    network_mode: host
+    stdin_open: true
+    tty: true
+    #restart: unless-stopped
+    restart: no
+    volumes:
+      # general data
+      - ./data:/data:rw
+      - ./data/rml_config:/data/resonite/Headless/rml_config:rw
+
+      # have volume entires in dockerfile, if removed this data will persist
+      # until the volume is removed
+      - ./data/resonite:/data/resonite:rw
+      - ./data/steamcmd:/data/steamcmd:rw
+
+      # debug testing
+      # - ./scripts:/scripts
+    ## EDIT THESE ENVIRONMENT VARIABLES ##
+    environment:
+      ## Options ## 
+      ## These have their defualts set in the Dockerfile, and are safe to remove from this file
+
+      # Prevents SteamCMD from updating the gamefiles
+      #DISABLE_STEAMCMD: true
+
+      # Where to located the config file, defaults to /data/Config.json
+      # if config file does not exist, it will generate a template one at that location
+      CONFIG_FILE: "/data/Config.json"
+
+      # overrides the command used to start the server, defaults to /scripts/99_start.sh
+      COMMAND: "/scripts/99_start.sh"
+
+      # Wether to enable the Resonite Mod Loader
+      RESONITE_MOD_LOADER: true
+
+      # list of mods to load,
+      MOD_URLS: |
+        https://github.com/Raidriar796/StresslessHeadless/releases/latest/download/StresslessHeadless.dll
+        https://github.com/New-Project-Final-Final-WIP/HeadlessTweaks/releases/latest/download/HeadlessTweaks.dll
+        https://github.com/Raidriar796/HeadlessUserCulling/releases/latest/download/HeadlessUserCulling.dll
+        https://github.com/troyBORG/HeadlessTickManager/releases/latest/download/HeadlessTickManager.dll
+        https://github.com/Raidriar796/FastSync/releases/latest/download/FastSync.dll
+
+      # Controls the UID:GID of the headless, defaults to `root` if not set
+      RUN_AS: 1000
+
+      # Does not allow the server to start, helpful for debugging the container as a whole
+      #STOP_LAUNCH: true
+
+    env_file:
+      # Intended location for steam credentials
+      - ./steamcred.env
+      #  STEAM_USER, STEAM_PASS, STEAM_AUTH, STEAM_BETA
