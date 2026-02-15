@@ -11,6 +11,7 @@ services:
     volumes:
       # general data
       - ./data:/data:rw
+      - ./Config.json:/data/Config.json:rw # manually override the config file, windows jank
       - ./data/rml_config:/data/resonite/Headless/rml_config:rw
 
       # have volume entires in dockerfile, if removed this data will persist
