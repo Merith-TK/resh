@@ -43,7 +43,7 @@ type ConnectionInfo struct {
 func NewStateFromResoLink(slotResp *resolink.SlotDataResponse) *State {
 	return &State{
 		CurrentSlot: "Root",
-		CurrentPath: "/Root",
+		CurrentPath: "/",
 		RootSlotID:  slotResp.Data.ID,
 	}
 }

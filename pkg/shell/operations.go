@@ -41,30 +41,50 @@ func ListSlot(client *resolink.Client, slotID string, rootSlotID string) (*SlotL
 	return listing, nil
 }
 
-// NavigateToChild navigates to a child slot by name
-func NavigateToChild(client *resolink.Client, state *State, targetName string) error {
+// NavigateToChild navigates to a child slot by name or ID
+func NavigateToChild(client *resolink.Client, state *State, target string) error {
 	// Get current slot with children
 	slotResp, err := client.GetSlot(state.CurrentSlot, false, 0)
 	if err != nil {
 		return fmt.Errorf("failed to get current slot: %w", err)
 	}
 
-	// Find child by name
+	// Convert display ID format (ID_xxx) back to actual ID format (Reso_xxx) if needed
+	actualTarget := target
+	if strings.HasPrefix(target, "ID_") {
+		actualTarget = strings.Replace(target, "ID_", "Reso_", 1)
+	}
+
+	// Find child by name or ID
 	var targetSlot *resolink.SlotReference
 	for _, child := range slotResp.Data.Children {
-		if child.Name != nil && child.Name.Value == targetName {
+		// Check if target matches ID (original or display format)
+		if child.ID == actualTarget || child.ID == target {
+			targetSlot = &child
+			break
+		}
+		// Check if target matches name
+		if child.Name != nil && child.Name.Value == target {
 			targetSlot = &child
 			break
 		}
 	}
 
 	if targetSlot == nil {
-		return fmt.Errorf("slot not found: %s", targetName)
+		return fmt.Errorf("slot not found: %s", target)
 	}
 
-	// Update state
+	// Update state - include ID in path for clarity
+	// Format: /ID_12345:Name or /ID_12345 if no name
+	// Use ID_ format (display format) in path, not Reso_ format
+	displayID := strings.Replace(targetSlot.ID, "Reso_", "ID_", 1)
+	displayName := displayID
+	if targetSlot.Name != nil && targetSlot.Name.Value != "" {
+		displayName = displayID + ":" + targetSlot.Name.Value
+	}
+
 	state.CurrentSlot = targetSlot.ID
-	state.CurrentPath = state.CurrentPath + "/" + targetName
+	state.CurrentPath = state.CurrentPath + "/" + displayName
 
 	return nil
 }
@@ -117,7 +137,7 @@ func NavigateToParent(client *resolink.Client, state *State) error {
 // NavigateToRoot navigates to the root slot
 func NavigateToRoot(state *State) {
 	state.CurrentSlot = "Root"
-	state.CurrentPath = "/Root"
+	state.CurrentPath = "/"
 }
 
 // TestConnection tests the connection by fetching the Root slot

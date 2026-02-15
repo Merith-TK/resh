@@ -33,6 +33,13 @@ func formatComponentType() string {
 	return fmt.Sprintf("%s[comp]%s", ColorGrey, ColorReset)
 }
 
+// formatID returns a yellow-colored ID prefix
+func formatID(id string) string {
+	// Replace Reso_ with ID_ for shorter display
+	displayID := strings.Replace(id, "Reso_", "ID_", 1)
+	return fmt.Sprintf("%s%s%s", ColorYellow, displayID, ColorReset)
+}
+
 // getPersistenceIndicator returns a text indicator for persistence
 func getPersistenceIndicator(isPersistent bool) string {
 	if isPersistent {
@@ -92,7 +99,8 @@ func displaySlotListing(listing *shell.SlotListing) {
 func displaySlotInfo(info *shell.SlotInfo) {
 	persistIndicator := getPersistenceIndicator(info.IsPersistent)
 	formattedType := formatSlotType(info.IsActive)
-	fmt.Printf("%s %s %s\n", persistIndicator, formattedType, info.Name)
+	formattedID := formatID(info.ID)
+	fmt.Printf("%s %s %s %s\n", persistIndicator, formattedType, formattedID, info.Name)
 }
 
 // displayComponentInfo renders a ComponentInfo
@@ -107,7 +115,8 @@ func displayComponentInfo(info *shell.ComponentInfo) {
 
 	persistIndicator := getPersistenceIndicator(info.IsPersistent)
 	formattedType := formatComponentType()
-	fmt.Printf("%s %s %s\n", persistIndicator, formattedType, compType)
+	formattedID := formatID(info.ID)
+	fmt.Printf("%s %s %s %s\n", persistIndicator, formattedType, formattedID, compType)
 }
 
 // stripComponentPrefix removes common component prefixes like [FrooxEngine]FrooxEngine.
