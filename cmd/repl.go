@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resonite-sh/pkg/shell"
 	"github.com/chzyer/readline"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -48,14 +49,14 @@ func startREPL() error {
 	fmt.Println()
 
 	// Initialize REPL state
-	state, err := initializeREPLState(client)
+	state, err := shell.InitializeState(client)
 	if err != nil {
 		return err
 	}
 
 	// Create readline instance with autocomplete
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          state.currentPath + " $ ",
+		Prompt:          state.CurrentPath + " $ ",
 		AutoComplete:    newCompleter(client, state),
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
@@ -81,30 +82,8 @@ func connectClient(url string) (*resolink.Client, error) {
 	return client, nil
 }
 
-// replState holds the current state of the REPL session
-type replState struct {
-	currentSlot string
-	currentPath string
-	rootSlotID  string
-}
-
-// initializeREPLState sets up the initial REPL state
-func initializeREPLState(client *resolink.Client) (*replState, error) {
-	// Get root slot ID for blacklisting
-	rootSlotResp, err := client.GetSlot("Root", false, 0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get root slot: %w", err)
-	}
-
-	return &replState{
-		currentSlot: "Root",
-		currentPath: "/Root",
-		rootSlotID:  rootSlotResp.Data.ID,
-	}, nil
-}
-
 // runREPLLoop runs the main REPL loop
-func runREPLLoop(rl *readline.Instance, client *resolink.Client, state *replState) error {
+func runREPLLoop(rl *readline.Instance, client *resolink.Client, state *shell.State) error {
 	for {
 		line, err := rl.Readline()
 		if err != nil {
@@ -131,7 +110,7 @@ func runREPLLoop(rl *readline.Instance, client *resolink.Client, state *replStat
 		}
 
 		// Update prompt and autocomplete
-		rl.SetPrompt(state.currentPath + " $ ")
+		rl.SetPrompt(state.CurrentPath + " $ ")
 		rl.Config.AutoComplete = newCompleter(client, state)
 	}
 
@@ -139,7 +118,7 @@ func runREPLLoop(rl *readline.Instance, client *resolink.Client, state *replStat
 }
 
 // handleCommand processes a single command and returns whether to exit
-func handleCommand(cmdName string, args []string, client *resolink.Client, state *replState) bool {
+func handleCommand(cmdName string, args []string, client *resolink.Client, state *shell.State) bool {
 	switch cmdName {
 	case "exit", "quit":
 		return true
@@ -151,7 +130,7 @@ func handleCommand(cmdName string, args []string, client *resolink.Client, state
 		testConnection(client)
 
 	case "ls":
-		listSlotContents(client, state.currentSlot, state.rootSlotID)
+		listSlotContents(client, state)
 
 	case "cd":
 		if len(args) == 0 {

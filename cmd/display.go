@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resonite-sh/pkg/shell"
 )
 
 // ANSI color codes for terminal output
@@ -12,6 +13,7 @@ const (
 	ColorCyan   = "\033[0;36m" // Active slots (like symlinks)
 	ColorBlue   = "\033[0;34m" // Inactive slots (like directories)
 	ColorWhite  = "\033[0;37m" // Components
+	ColorGrey   = "\033[0;90m" // Greyed out (components)
 	ColorYellow = "\033[0;33m" // Warnings/info
 )
 
@@ -28,7 +30,7 @@ func formatSlotType(isActive bool) string {
 
 // formatComponentType returns a colored [comp] indicator
 func formatComponentType() string {
-	return fmt.Sprintf("%s[comp]%s", ColorWhite, ColorReset)
+	return fmt.Sprintf("%s[comp]%s", ColorGrey, ColorReset)
 }
 
 // getPersistenceIndicator returns a text indicator for persistence
@@ -46,43 +48,6 @@ func displaySlotHeader(slotName string) {
 	fmt.Println()
 }
 
-// displaySlot prints a single slot entry with unified format
-func displaySlot(slot *resolink.SlotReference) {
-	// Get slot name
-	name := "<unnamed>"
-	if slot.Name != nil {
-		name = slot.Name.Value
-	}
-
-	// Determine if active
-	isActive := true
-	if slot.IsActive != nil {
-		isActive = slot.IsActive.Value
-	}
-
-	// Determine persistence
-	isPersistent := true
-	if slot.IsPersistent != nil {
-		isPersistent = slot.IsPersistent.Value
-	}
-
-	// Format and print with unified format: {P/T} [slot] name
-	persistIndicator := getPersistenceIndicator(isPersistent)
-	formattedType := formatSlotType(isActive)
-	fmt.Printf("%s %s %s\n", persistIndicator, formattedType, name)
-}
-
-// displayComponent prints a single component entry with unified format
-func displayComponent(comp *resolink.ComponentReference) {
-	compType := comp.ComponentType
-	if compType == "" {
-		compType = "<unknown type>"
-	}
-
-	formattedType := formatComponentType()
-	fmt.Printf("  %s %s\n", formattedType, compType)
-}
-
 // displayEmptySlot prints a message for empty slots
 func displayEmptySlot() {
 	fmt.Println("(empty slot - no children or components)")
@@ -93,4 +58,64 @@ func displayEmptySlot() {
 func displayRootProtection() {
 	fmt.Printf("%s[Root slot - components hidden for safety]%s\n", ColorYellow, ColorReset)
 	fmt.Println()
+}
+
+// displaySlotListing renders a complete slot listing
+func displaySlotListing(listing *shell.SlotListing) {
+	// Display header
+	displaySlotHeader(listing.SlotName)
+
+	// Display child slots
+	for i := range listing.Children {
+		displaySlotInfo(&listing.Children[i])
+	}
+
+	// Display components or protection message
+	if listing.IsRootSlot {
+		if len(listing.Children) > 0 {
+			fmt.Println()
+		}
+		displayRootProtection()
+	} else if len(listing.Components) > 0 {
+		for i := range listing.Components {
+			displayComponentInfo(&listing.Components[i])
+		}
+		fmt.Println()
+	} else if len(listing.Children) == 0 {
+		displayEmptySlot()
+	} else {
+		fmt.Println()
+	}
+}
+
+// displaySlotInfo renders a SlotInfo
+func displaySlotInfo(info *shell.SlotInfo) {
+	persistIndicator := getPersistenceIndicator(info.IsPersistent)
+	formattedType := formatSlotType(info.IsActive)
+	fmt.Printf("%s %s %s\n", persistIndicator, formattedType, info.Name)
+}
+
+// displayComponentInfo renders a ComponentInfo
+func displayComponentInfo(info *shell.ComponentInfo) {
+	compType := info.Type
+	if compType == "" {
+		compType = "<unknown type>"
+	}
+
+	// Strip [FrooxEngine]FrooxEngine. or similar prefixes
+	compType = stripComponentPrefix(compType)
+
+	persistIndicator := getPersistenceIndicator(info.IsPersistent)
+	formattedType := formatComponentType()
+	fmt.Printf("%s %s %s\n", persistIndicator, formattedType, compType)
+}
+
+// stripComponentPrefix removes common component prefixes like [FrooxEngine]FrooxEngine.
+func stripComponentPrefix(typeName string) string {
+	// Strip [AssemblyName]Namespace. pattern
+	// Example: [FrooxEngine]FrooxEngine.StaticFont -> StaticFont
+	if idx := strings.LastIndex(typeName, "."); idx != -1 {
+		return typeName[idx+1:]
+	}
+	return typeName
 }

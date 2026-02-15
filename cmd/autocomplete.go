@@ -4,16 +4,17 @@ import (
 	"strings"
 
 	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resonite-sh/pkg/shell"
 )
 
 // completer implements readline.AutoCompleter for command and slot name completion
 type completer struct {
 	client *resolink.Client
-	state  *replState
+	state  *shell.State
 }
 
 // newCompleter creates a new autocompleter
-func newCompleter(client *resolink.Client, state *replState) *completer {
+func newCompleter(client *resolink.Client, state *shell.State) *completer {
 	return &completer{
 		client: client,
 		state:  state,
@@ -81,7 +82,7 @@ func (c *completer) completeCommand(prefix string) ([][]rune, int) {
 // completeSlotName completes slot names in current directory
 func (c *completer) completeSlotName(prefix string) ([][]rune, int) {
 	// Get current slot with children
-	slotResp, err := c.client.GetSlot(c.state.currentSlot, false, 0)
+	slotResp, err := c.client.GetSlot(c.state.CurrentSlot, false, 0)
 	if err != nil {
 		return nil, 0
 	}
