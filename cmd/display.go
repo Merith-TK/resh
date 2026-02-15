@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Merith-TK/resonite-sh/pkg/resolink"
 	"github.com/Merith-TK/resonite-sh/pkg/shell"
 )
 
@@ -127,4 +128,205 @@ func stripComponentPrefix(typeName string) string {
 		return typeName[idx+1:]
 	}
 	return typeName
+}
+
+// displayComponentData renders full component inspection
+func displayComponentData(data *shell.ComponentData) {
+	fmt.Println()
+	fmt.Printf("Component: %s %s\n", data.TypeName, formatID(data.ID))
+	fmt.Println()
+
+	if len(data.Members) == 0 {
+		fmt.Println("(no members)")
+		fmt.Println()
+		return
+	}
+
+	// Find max widths for alignment
+	maxIDWidth := 0
+	maxTypeWidth := 0
+	maxNameWidth := 0
+	for i := range data.Members {
+		idLen := len(strings.Replace(data.Members[i].ID, "Reso_", "ID_", 1))
+		if idLen > maxIDWidth {
+			maxIDWidth = idLen
+		}
+		typeLen := len(data.Members[i].Type)
+		if typeLen > maxTypeWidth {
+			maxTypeWidth = typeLen
+		}
+		nameLen := len(data.Members[i].Name)
+		if nameLen > maxNameWidth {
+			maxNameWidth = nameLen
+		}
+	}
+
+	// Display each member
+	for i := range data.Members {
+		member := &data.Members[i]
+		displayMemberInfo(member, maxIDWidth, maxTypeWidth, maxNameWidth)
+	}
+	fmt.Println()
+}
+
+// displayMemberInfo renders a single component member
+func displayMemberInfo(member *shell.MemberData, idWidth, typeWidth, nameWidth int) {
+	formattedID := formatID(member.ID)
+	// Account for ANSI color codes in width calculation
+	idPadding := idWidth + len(ColorYellow) + len(ColorReset)
+
+	// Format value
+	valueStr := formatMemberValue(member.Value)
+
+	// Print: ID [Type] Name = Value
+	fmt.Printf("%-*s [%-*s] %-*s = %s\n",
+		idPadding, formattedID,
+		typeWidth, member.Type,
+		nameWidth, member.Name,
+		valueStr)
+}
+
+// formatMemberValue formats a member value for display
+func formatMemberValue(value interface{}) string {
+	if value == nil {
+		return "<null>"
+	}
+
+	switch v := value.(type) {
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case string:
+		if v == "" {
+			return "<empty>"
+		}
+		return fmt.Sprintf("%q", v)
+	case float64:
+		// JSON numbers are always float64
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%d", int64(v))
+		}
+		return fmt.Sprintf("%g", v)
+	case map[string]interface{}:
+		// Handle structured types like float3, floatQ, references, etc.
+
+		// Check for reference type (has targetId field)
+		if targetID, hasTarget := v["targetId"]; hasTarget {
+			if targetStr, ok := targetID.(string); ok && targetStr != "" {
+				displayID := strings.Replace(targetStr, "Reso_", "ID_", 1)
+				return fmt.Sprintf("%s%s%s", ColorYellow, displayID, ColorReset)
+			}
+			return "<null>"
+		}
+
+		// Check for float3/floatQ (has x, y, z fields)
+		if x, hasX := v["x"]; hasX {
+			if y, hasY := v["y"]; hasY {
+				if z, hasZ := v["z"]; hasZ {
+					if w, hasW := v["w"]; hasW {
+						// floatQ (x,y,z,w)
+						return fmt.Sprintf("[%v, %v, %v, %v]", x, y, z, w)
+					}
+					// float3 (x,y,z)
+					return fmt.Sprintf("[%v, %v, %v]", x, y, z)
+				}
+			}
+		}
+		// Other map types - fallback
+		return fmt.Sprintf("%v", v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// displaySlotData renders full slot inspection
+func displaySlotData(data *shell.SlotData) {
+	fmt.Println()
+	fmt.Printf("Slot: %s\n", formatID(data.ID))
+	fmt.Println()
+
+	if len(data.Properties) == 0 {
+		fmt.Println("(no properties)")
+		fmt.Println()
+		return
+	}
+
+	// Find max widths for alignment
+	maxNameWidth := 0
+	maxTypeWidth := 0
+	for i := range data.Properties {
+		nameLen := len(data.Properties[i].Name)
+		if nameLen > maxNameWidth {
+			maxNameWidth = nameLen
+		}
+		typeLen := len(data.Properties[i].Type)
+		if typeLen > maxTypeWidth {
+			maxTypeWidth = typeLen
+		}
+	}
+
+	// Display each property
+	for i := range data.Properties {
+		prop := &data.Properties[i]
+		displaySlotProperty(prop, maxNameWidth, maxTypeWidth)
+	}
+	fmt.Println()
+}
+
+// displaySlotProperty renders a single slot property
+func displaySlotProperty(prop *shell.SlotProperty, nameWidth, typeWidth int) {
+	// Format value
+	valueStr := formatSlotValue(prop.Value, prop.Type)
+
+	// Print: Name [Type] = Value
+	fmt.Printf("%-*s [%-*s] = %s\n",
+		nameWidth, prop.Name,
+		typeWidth, prop.Type,
+		valueStr)
+}
+
+// formatSlotValue formats a slot property value for display
+func formatSlotValue(value interface{}, valueType string) string {
+	if value == nil {
+		return "<null>"
+	}
+
+	switch valueType {
+	case "float3":
+		if v, ok := value.(*resolink.Float3); ok {
+			return fmt.Sprintf("[%g, %g, %g]", v.X, v.Y, v.Z)
+		}
+	case "floatQ":
+		if v, ok := value.(*resolink.FloatQ); ok {
+			return fmt.Sprintf("[%g, %g, %g, %g]", v.X, v.Y, v.Z, v.W)
+		}
+	case "reference":
+		if v, ok := value.(string); ok && v != "" {
+			displayID := strings.Replace(v, "Reso_", "ID_", 1)
+			return fmt.Sprintf("%s%s%s", ColorYellow, displayID, ColorReset)
+		}
+		return "<null>"
+	case "bool":
+		if v, ok := value.(bool); ok {
+			if v {
+				return "true"
+			}
+			return "false"
+		}
+	case "string":
+		if v, ok := value.(string); ok {
+			if v == "" {
+				return "<empty>"
+			}
+			return fmt.Sprintf("%q", v)
+		}
+	case "long":
+		if v, ok := value.(int64); ok {
+			return fmt.Sprintf("%d", v)
+		}
+	}
+
+	return fmt.Sprintf("%v", value)
 }

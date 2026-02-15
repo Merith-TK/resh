@@ -147,6 +147,25 @@ func handleCommand(cmdName string, args []string, client *resolink.Client, state
 			}
 		}
 
+	case "inspect":
+		if len(args) == 0 {
+			fmt.Println("inspect: missing component ID")
+			fmt.Println("Usage: inspect <component_id>")
+		} else {
+			inspectComponent(client, args[0])
+		}
+
+	case "set":
+		if len(args) < 2 {
+			fmt.Println("set: missing arguments")
+			fmt.Println("Usage: set <id> <member_id>=<value>  (for components)")
+			fmt.Println("       set <id> <property>=<value>   (for slots)")
+			fmt.Println("Example: set ID_100 ID_812=2")
+			fmt.Println("Example: set ID_101 Name=\"My Slot\"")
+		} else {
+			setComponentMember(client, args)
+		}
+
 	default:
 		fmt.Printf("Unknown command: %s (type 'help' for commands)\n", cmdName)
 	}
