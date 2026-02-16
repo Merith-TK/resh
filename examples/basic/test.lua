@@ -3,16 +3,16 @@ print("=== RESH Test Script ===")
 print("")
 
 -- Get current location
-local path = pwd()
+local path = RESH.pwd()
 print("Current path: " .. path)
 
-local slot_id = get_current_slot()
+local slot_id = RESH.get_current_slot()
 print("Current slot: " .. slot_id)
 print("")
 
 -- List contents
 print("Listing current directory:")
-local listing = ls()
+local listing = RESH.ls()
 
 print("Children: " .. #listing.children)
 for i, child in ipairs(listing.children) do
@@ -28,13 +28,13 @@ print("")
 
 -- Test navigation
 print("Navigating to root...")
-cd("/")
-print("New path: " .. pwd())
+RESH.cd("/")
+print("New path: " .. RESH.pwd())
 print("")
 
 -- Find a slot
 print("Searching for 'RESH' slot...")
-local found = find_slot("RESH")
+local found = RESH.find_slot("RESH")
 if found then
     print("Found: " .. found)
 else

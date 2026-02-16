@@ -6,11 +6,11 @@ print("")
 
 -- Navigate to root
 print("Navigating to root...")
-cd("/")
+RESH.cd("/")
 
 -- Find RESH.DATA
 print("Looking for RESH.DATA slot...")
-local resh_id = find_slot("RESH.DATA")
+local resh_id = RESH.find_slot("RESH.DATA")
 
 if not resh_id then
     print("ERROR: RESH.DATA slot not found!")
@@ -22,12 +22,12 @@ print("Found RESH.DATA: " .. resh_id)
 print("")
 
 -- Navigate to RESH.DATA
-cd("RESH.DATA")
+RESH.cd("RESH.DATA")
 print("Inspecting RESH.DATA slot...")
 print("")
 
 -- Get slot data
-local slot_data = inspect(resh_id)
+local slot_data = RESH.inspect(resh_id)
 print("Slot Properties:")
 print("  Name: " .. (slot_data.Name or "N/A"))
 print("  Tag: " .. (slot_data.Tag or "N/A"))
@@ -36,13 +36,13 @@ print("  Persistent: " .. tostring(slot_data.Persistent))
 print("")
 
 -- List components
-local listing = ls()
+local listing = RESH.ls()
 print("Components on RESH.DATA:")
 for i, comp in ipairs(listing.components) do
     print("  [" .. i .. "] " .. comp.type .. " (" .. comp.id .. ")")
     
     -- Inspect each component
-    local comp_data = inspect(comp.id)
+    local comp_data = RESH.inspect(comp.id)
     if comp_data.Members then
         for name, member in pairs(comp_data.Members) do
             local value_str = "N/A"
@@ -59,20 +59,20 @@ end
 
 -- Look for Bookmarks child
 print("Looking for Bookmarks child slot...")
-local bookmarks_id = find_slot("Bookmarks")
+local bookmarks_id = RESH.find_slot("Bookmarks")
 
 if bookmarks_id then
     print("Found Bookmarks: " .. bookmarks_id)
-    cd("Bookmarks")
+    RESH.cd("Bookmarks")
     
     -- List Bookmarks components
-    listing = ls()
+    listing = RESH.ls()
     print("")
     print("Components on Bookmarks:")
     for i, comp in ipairs(listing.components) do
         print("  [" .. i .. "] " .. comp.type .. " (" .. comp.id .. ")")
         
-        local comp_data = inspect(comp.id)
+        local comp_data = RESH.inspect(comp.id)
         if comp_data.Members then
             for name, member in pairs(comp_data.Members) do
                 local value_str = "N/A"

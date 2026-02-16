@@ -3,13 +3,13 @@ print("=== Lua Data Interface Demo ===")
 print("")
 
 -- Navigate to root
-cd("/")
-print("Current location: " .. pwd())
+RESH.cd("/")
+print("Current location: " .. RESH.pwd())
 print("")
 
 -- List current directory
 print("Listing root:")
-local listing = ls()
+local listing = RESH.ls()
 
 -- Access children array
 print("Children (" .. #listing.children .. " total):")
@@ -41,7 +41,7 @@ if #listing.components > 0 then
     print("Inspecting first component: " .. first_comp.type)
     print("")
     
-    local comp_data = inspect(first_comp.id)
+    local comp_data = RESH.inspect(first_comp.id)
     
     -- Component metadata
     print("Type: " .. comp_data.TypeName)
@@ -83,7 +83,7 @@ if #listing.children > 0 then
     print("Inspecting first child slot: " .. first_child.name)
     print("")
     
-    local slot_data = inspect(first_child.id)
+    local slot_data = RESH.inspect(first_child.id)
     
     -- Slot properties accessed directly by name
     print("Slot Properties:")

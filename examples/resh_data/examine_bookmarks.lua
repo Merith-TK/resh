@@ -4,14 +4,14 @@ print("Bookmark Structure Deep Dive")
 print("=" .. string.rep("=", 60))
 print("")
 
-cd("/")
-cd("RESH.DATA")
-cd("Bookmarks")
+RESH.cd("/")
+RESH.cd("RESH.DATA")
+RESH.cd("Bookmarks")
 
 print("📂 Inside RESH.DATA/Bookmarks")
 print("")
 
-local listing = ls()
+local listing = RESH.ls()
 print("Children: " .. #listing.children)
 print("")
 
@@ -21,10 +21,10 @@ for i, child in ipairs(listing.children) do
     print("Bookmark [" .. i .. "]: " .. child.name)
     print("=" .. string.rep("-", 58))
     
-    cd(child.name)
+    RESH.cd(child.name)
     
     -- Get slot properties
-    local slot = inspect(child.id)
+    local slot = RESH.inspect(child.id)
     print("Slot ID: " .. child.id)
     if slot.Tag and slot.Tag ~= "" then
         print("Tag: " .. slot.Tag)
@@ -34,7 +34,7 @@ for i, child in ipairs(listing.children) do
     print("")
     
     -- List components
-    local child_listing = ls()
+    local child_listing = RESH.ls()
     print("Components (" .. #child_listing.components .. " total):")
     print("")
     
@@ -42,7 +42,7 @@ for i, child in ipairs(listing.children) do
         print("  [" .. j .. "] " .. comp.type)
         print("      ID: " .. comp.id)
         
-        local comp_data = inspect(comp.id)
+        local comp_data = RESH.inspect(comp.id)
         if comp_data.Members then
             print("      Members:")
             for name, member in pairs(comp_data.Members) do
@@ -94,7 +94,7 @@ for i, child in ipairs(listing.children) do
         print("")
     end
     
-    cd("..")
+    RESH.cd("..")
 end
 
 print("")
@@ -104,9 +104,9 @@ print("=" .. string.rep("=", 60))
 print("")
 
 -- Summary
-cd("WorldObjects")
-local wobj_listing = ls()
-cd("..")
+RESH.cd("WorldObjects")
+local wobj_listing = RESH.ls()
+RESH.cd("..")
 
 print("Bookmark Pattern:")
 print("  • Location: RESH.DATA/Bookmarks/<bookmark_name>")
@@ -116,7 +116,7 @@ print("  • Components: " .. #wobj_listing.components)
 -- Check for DynamicReferenceVariable pattern
 for _, comp in ipairs(wobj_listing.components) do
     if string.match(comp.type, "DynamicReferenceVariable") then
-        local comp_data = inspect(comp.id)
+        local comp_data = RESH.inspect(comp.id)
         if comp_data.Members then
             print("")
             print("Variable Configuration:")

@@ -42,9 +42,12 @@ func RunScript(client *resolink.Client, state *State, scriptPath string) error {
 	return nil
 }
 
-// registerShellFunctions registers shell operations as Lua functions
+// registerShellFunctions registers shell operations as Lua functions under RESH table
 func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
-	// print function
+	// Create RESH table
+	resh := L.NewTable()
+
+	// Keep print as global (standard Lua function)
 	L.SetGlobal("print", L.NewFunction(func(L *lua.LState) int {
 		n := L.GetTop()
 		parts := make([]string, n)
@@ -57,8 +60,8 @@ func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
 		return 0
 	}))
 
-	// cd function
-	L.SetGlobal("cd", L.NewFunction(func(L *lua.LState) int {
+	// cd function -> RESH.cd
+	L.SetField(resh, "cd", L.NewFunction(func(L *lua.LState) int {
 		target := L.CheckString(1)
 
 		var err error
@@ -80,8 +83,8 @@ func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
 		return 1
 	}))
 
-	// ls function - returns table of slot/component info
-	L.SetGlobal("ls", L.NewFunction(func(L *lua.LState) int {
+	// ls function -> RESH.ls - returns table of slot/component info
+	L.SetField(resh, "ls", L.NewFunction(func(L *lua.LState) int {
 		listing, err := ListSlot(ctx.Client, ctx.State.CurrentSlot, ctx.State.RootSlotID)
 		if err != nil {
 			L.Push(lua.LNil)
@@ -120,8 +123,8 @@ func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
 		return 1
 	}))
 
-	// inspect function - returns component/slot data
-	L.SetGlobal("inspect", L.NewFunction(func(L *lua.LState) int {
+	// inspect function -> RESH.inspect - returns component/slot data
+	L.SetField(resh, "inspect", L.NewFunction(func(L *lua.LState) int {
 		targetID := L.CheckString(1)
 
 		// Try component first
@@ -187,20 +190,20 @@ func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
 		return 2
 	}))
 
-	// pwd function - returns current path
-	L.SetGlobal("pwd", L.NewFunction(func(L *lua.LState) int {
+	// pwd function -> RESH.pwd - returns current path
+	L.SetField(resh, "pwd", L.NewFunction(func(L *lua.LState) int {
 		L.Push(lua.LString(ctx.State.CurrentPath))
 		return 1
 	}))
 
-	// get_current_slot function - returns current slot ID
-	L.SetGlobal("get_current_slot", L.NewFunction(func(L *lua.LState) int {
+	// get_current_slot function -> RESH.get_current_slot - returns current slot ID
+	L.SetField(resh, "get_current_slot", L.NewFunction(func(L *lua.LState) int {
 		L.Push(lua.LString(ctx.State.CurrentSlot))
 		return 1
 	}))
 
-	// find_slot function - searches for slots by name
-	L.SetGlobal("find_slot", L.NewFunction(func(L *lua.LState) int {
+	// find_slot function -> RESH.find_slot - searches for slots by name
+	L.SetField(resh, "find_slot", L.NewFunction(func(L *lua.LState) int {
 		name := L.CheckString(1)
 
 		listing, err := ListSlot(ctx.Client, ctx.State.CurrentSlot, ctx.State.RootSlotID)
@@ -219,6 +222,9 @@ func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
 		L.Push(lua.LNil)
 		return 1
 	}))
+
+	// Set RESH table as global
+	L.SetGlobal("RESH", resh)
 }
 
 // convertToLuaValue converts a Go value to an appropriate Lua value
