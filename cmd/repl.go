@@ -193,6 +193,14 @@ func handleCommand(cmdName string, args []string, client *resolink.Client, state
 			deleteBookmark(state, args[0])
 		}
 
+	case "script":
+		if len(args) == 0 {
+			fmt.Println("script: missing file path")
+			fmt.Println("Usage: script <file.lua>")
+		} else {
+			runScript(client, state, args[0])
+		}
+
 	default:
 		fmt.Printf("Unknown command: %s (type 'help' for commands)\n", cmdName)
 	}

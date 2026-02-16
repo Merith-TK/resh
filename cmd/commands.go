@@ -58,6 +58,9 @@ func printHelp() {
 	fmt.Println("  bookmarks                 - List all bookmarks")
 	fmt.Println("  unbookmark <name>         - Delete a bookmark")
 	fmt.Println()
+	fmt.Println("Scripting:")
+	fmt.Println("  script <file.lua>         - Run a Lua script")
+	fmt.Println()
 	fmt.Println("More commands coming soon...")
 }
 
@@ -203,4 +206,15 @@ func deleteBookmark(state *shell.State, name string) {
 		return
 	}
 	fmt.Printf("✓ Deleted bookmark '%s'\n", name)
+}
+
+// runScript executes a Lua script
+func runScript(client *resolink.Client, state *shell.State, scriptPath string) {
+	err := shell.RunScript(client, state, scriptPath)
+	if err != nil {
+		fmt.Printf("Error running script: %v\n", err)
+		return
+	}
+
+	fmt.Println("✓ Script completed")
 }
