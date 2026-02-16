@@ -9,7 +9,7 @@ import (
 
 const (
 	RESHSlotName    = "RESH"
-	OrderOffset     = 999 // Special offset to make RESH appear last
+	OrderOffset     = -999 // Special offset to make RESH appear last
 	VarsSlotName    = "VARS"
 	SessionSlotName = "SESSION"
 	LocalSlotName   = "LOCAL"
