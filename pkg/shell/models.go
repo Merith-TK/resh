@@ -7,6 +7,8 @@ type State struct {
 	CurrentSlot string
 	CurrentPath string
 	RootSlotID  string
+	RESHDataID  string            // ID of /RESH.DATA slot for variable storage
+	Variables   map[string]string // Bookmark variables (name -> slotID)
 }
 
 // SlotListing contains the contents of a slot

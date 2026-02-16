@@ -166,6 +166,33 @@ func handleCommand(cmdName string, args []string, client *resolink.Client, state
 			setComponentMember(client, args)
 		}
 
+	case "bookmark":
+		if len(args) == 0 {
+			fmt.Println("bookmark: missing name")
+			fmt.Println("Usage: bookmark <name>")
+		} else {
+			saveBookmark(client, state, args[0])
+		}
+
+	case "goto":
+		if len(args) == 0 {
+			fmt.Println("goto: missing bookmark name")
+			fmt.Println("Usage: goto <name>")
+		} else {
+			gotoBookmark(client, state, args[0])
+		}
+
+	case "bookmarks":
+		listBookmarks(state)
+
+	case "unbookmark":
+		if len(args) == 0 {
+			fmt.Println("unbookmark: missing name")
+			fmt.Println("Usage: unbookmark <name>")
+		} else {
+			deleteBookmark(state, args[0])
+		}
+
 	default:
 		fmt.Printf("Unknown command: %s (type 'help' for commands)\n", cmdName)
 	}

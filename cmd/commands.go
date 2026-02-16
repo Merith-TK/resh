@@ -52,11 +52,23 @@ func printHelp() {
 	fmt.Println("  inspect <id>              - Inspect component or slot")
 	fmt.Println("  set <id> <key>=<val>      - Set component member or slot property")
 	fmt.Println()
+	fmt.Println("Bookmarks:")
+	fmt.Println("  bookmark <name>           - Save current slot as bookmark")
+	fmt.Println("  goto <name>               - Navigate to bookmarked slot")
+	fmt.Println("  bookmarks                 - List all bookmarks")
+	fmt.Println("  unbookmark <name>         - Delete a bookmark")
+	fmt.Println()
 	fmt.Println("More commands coming soon...")
 }
 
 // changeDirectory navigates to a different slot
 func changeDirectory(client *resolink.Client, target string, state *shell.State) error {
+	// Check if target is a bookmark first
+	if bookmarkID, err := shell.GetBookmark(state, target); err == nil {
+		// Navigate to bookmarked slot
+		return shell.NavigateToChild(client, state, bookmarkID)
+	}
+
 	// Handle special cases
 	switch target {
 	case "/":
@@ -138,4 +150,57 @@ func setComponentMember(client *resolink.Client, args []string) {
 	fmt.Printf("Error: Could not set as component member or slot property\n")
 	fmt.Printf("  Component: %v\n", compErr)
 	fmt.Printf("  Slot: %v\n", slotErr)
+}
+
+// saveBookmark saves the current slot as a bookmark
+func saveBookmark(client *resolink.Client, state *shell.State, name string) {
+	err := shell.SetBookmark(client, state, name, state.CurrentSlot)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Printf("✓ Bookmarked '%s' -> %s\n", name, formatID(state.CurrentSlot))
+}
+
+// gotoBookmark navigates to a bookmarked slot
+func gotoBookmark(client *resolink.Client, state *shell.State, name string) {
+	slotID, err := shell.GetBookmark(state, name)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	// Navigate to the bookmarked slot
+	err = shell.NavigateToChild(client, state, slotID)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+}
+
+// listBookmarks displays all bookmarks
+func listBookmarks(state *shell.State) {
+	bookmarks := shell.ListBookmarks(state)
+	if len(bookmarks) == 0 {
+		fmt.Println("No bookmarks saved")
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("Bookmarks:")
+	for _, name := range bookmarks {
+		slotID, _ := shell.GetBookmark(state, name)
+		fmt.Printf("  %s -> %s\n", name, formatID(slotID))
+	}
+	fmt.Println()
+}
+
+// deleteBookmark removes a bookmark
+func deleteBookmark(state *shell.State, name string) {
+	err := shell.DeleteBookmark(state, name)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Printf("✓ Deleted bookmark '%s'\n", name)
 }

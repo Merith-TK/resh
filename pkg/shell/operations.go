@@ -165,5 +165,18 @@ func InitializeState(client *resolink.Client) (*State, error) {
 		return nil, fmt.Errorf("failed to get root slot: %w", err)
 	}
 
-	return NewStateFromResoLink(rootSlotResp), nil
+	state := NewStateFromResoLink(rootSlotResp)
+	state.Variables = make(map[string]string)
+
+	// Initialize RESH.DATA slot for variable storage
+	reshDataID, err := InitializeRESHData(client, state.RootSlotID)
+	if err != nil {
+		// Don't fail completely, just log the error
+		// User can still use the shell without variable storage
+		fmt.Printf("Warning: Failed to initialize RESH.DATA: %v\n", err)
+	} else {
+		state.RESHDataID = reshDataID
+	}
+
+	return state, nil
 }
