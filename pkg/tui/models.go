@@ -37,6 +37,7 @@ type Model struct {
 	TreeCursor      int        // Selected item index
 	FocusedSlotID   string     // Current focused slot in tree
 	FocusedSlotName string     // Name of focused slot
+	PathBreadcrumb  []string   // Path breadcrumb for navigation
 
 	// Inspector panel state
 	InspectedItem *TreeItem   // Currently inspected item
@@ -71,6 +72,7 @@ func NewModel(client *resolink.Client, state *shell.State) Model {
 		TreeCursor:       0,
 		FocusedSlotID:    state.RootSlotID,
 		FocusedSlotName:  "Root",
+		PathBreadcrumb:   []string{"Root"},
 		UpdateOnNavigate: false, // Default: update only on Enter
 		HideRoot:         true,  // Hide root components
 		HideRESHData:     true,  // Hide RESH.DATA

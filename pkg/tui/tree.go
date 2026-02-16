@@ -82,8 +82,13 @@ func (m *Model) LoadTreeItems() error {
 func (m Model) RenderTree(width, height int) string {
 	var b strings.Builder
 
-	// Title
-	title := titleStyle.Render(fmt.Sprintf("Tree: %s", m.FocusedSlotName))
+	// Title with breadcrumb path
+	pathStr := strings.Join(m.PathBreadcrumb, " > ")
+	if len(pathStr) > width-10 {
+		// Truncate from the left, keep the end
+		pathStr = "..." + pathStr[len(pathStr)-(width-13):]
+	}
+	title := titleStyle.Render(fmt.Sprintf("Tree: %s", pathStr))
 	b.WriteString(title)
 	b.WriteString("\n")
 
@@ -117,7 +122,7 @@ func (m Model) RenderTree(width, height int) string {
 	// Help text at bottom
 	b.WriteString("\n")
 	if m.Focus == FocusTree {
-		b.WriteString(helpStyle.Render("  ↑/↓:nav Enter:select Alt+Enter:focus Alt+Bksp:parent Tab:inspector"))
+		b.WriteString(helpStyle.Render("  ↑/↓:nav Enter:select →/f:focus ←/b:parent r:reload Tab:inspector"))
 	}
 
 	content := b.String()
@@ -203,20 +208,27 @@ func (m *Model) FocusOnSlot() error {
 	if m.TreeCursor >= 0 && m.TreeCursor < len(m.TreeItems) {
 		item := m.TreeItems[m.TreeCursor]
 		if !item.IsSlot {
-			m.ErrorMessage = "Can only focus on slots"
+			m.ErrorMessage = "Can only focus on slots (not components)"
 			return fmt.Errorf("not a slot")
 		}
 
 		m.FocusedSlotID = item.ID
 		m.FocusedSlotName = item.Name
 		m.TreeCursor = 0
+		m.ErrorMessage = "" // Clear any previous errors
+
+		// Update breadcrumb path
+		m.PathBreadcrumb = append(m.PathBreadcrumb, item.Name)
 
 		// Reload tree
 		if err := m.LoadTreeItems(); err != nil {
+			m.ErrorMessage = fmt.Sprintf("Failed to load slot: %v", err)
+			// Revert breadcrumb on error
+			m.PathBreadcrumb = m.PathBreadcrumb[:len(m.PathBreadcrumb)-1]
 			return err
 		}
 
-		m.StatusMessage = fmt.Sprintf("Focused: %s", item.Name)
+		m.StatusMessage = fmt.Sprintf("Focused on: %s", item.Name)
 	}
 	return nil
 }
@@ -225,18 +237,19 @@ func (m *Model) FocusOnSlot() error {
 func (m *Model) FocusOnParent() error {
 	// Can't go above root
 	if m.FocusedSlotID == m.State.RootSlotID || m.FocusedSlotID == "Root" {
-		m.ErrorMessage = "Already at root"
+		m.ErrorMessage = "Already at root (can't go higher)"
 		return fmt.Errorf("already at root")
 	}
 
 	// Get current slot to find parent
 	slotResp, err := m.Client.GetSlot(m.FocusedSlotID, false, 0)
 	if err != nil {
+		m.ErrorMessage = fmt.Sprintf("Failed to get slot: %v", err)
 		return fmt.Errorf("failed to get slot: %w", err)
 	}
 
 	if slotResp.Data.Parent == nil {
-		m.ErrorMessage = "No parent slot"
+		m.ErrorMessage = "No parent slot found"
 		return fmt.Errorf("no parent")
 	}
 
@@ -245,6 +258,7 @@ func (m *Model) FocusOnParent() error {
 	// Get parent name
 	parentResp, err := m.Client.GetSlot(parentID, false, 0)
 	if err != nil {
+		m.ErrorMessage = fmt.Sprintf("Failed to get parent: %v", err)
 		return fmt.Errorf("failed to get parent: %w", err)
 	}
 
@@ -256,12 +270,19 @@ func (m *Model) FocusOnParent() error {
 	m.FocusedSlotID = parentID
 	m.FocusedSlotName = parentName
 	m.TreeCursor = 0
+	m.ErrorMessage = "" // Clear errors
+
+	// Update breadcrumb: pop last item
+	if len(m.PathBreadcrumb) > 1 {
+		m.PathBreadcrumb = m.PathBreadcrumb[:len(m.PathBreadcrumb)-1]
+	}
 
 	// Reload tree
 	if err := m.LoadTreeItems(); err != nil {
+		m.ErrorMessage = fmt.Sprintf("Failed to load parent: %v", err)
 		return err
 	}
 
-	m.StatusMessage = fmt.Sprintf("Focused: %s", parentName)
+	m.StatusMessage = fmt.Sprintf("Parent: %s", parentName)
 	return nil
 }

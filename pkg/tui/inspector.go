@@ -87,39 +87,58 @@ func (m Model) renderComponentInspector(b *strings.Builder) {
 	b.WriteString("\n")
 
 	b.WriteString(fieldNameStyle.Render("  TypeName: "))
-	b.WriteString(fieldValueStyle.Render(m.InspectedItem.Type))
+	typeName := m.InspectedItem.Type
+	if len(typeName) > 40 {
+		typeName = typeName[:37] + "..."
+	}
+	b.WriteString(fieldValueStyle.Render(typeName))
 	b.WriteString("\n\n")
 
 	// If we have inspected data, show component members
 	if m.InspectedData != nil {
 		if compData, ok := m.InspectedData.(*shell.ComponentData); ok {
-			b.WriteString(fieldNameStyle.Render("  Members:\n"))
+			if len(compData.Members) == 0 {
+				b.WriteString(helpStyle.Render("  (No members)"))
+			} else {
+				b.WriteString(fieldNameStyle.Render("  Members:\n"))
 
-			// Show members (Members is an array)
-			maxDisplay := 10
-			if len(compData.Members) < maxDisplay {
-				maxDisplay = len(compData.Members)
-			}
-
-			for i := 0; i < maxDisplay; i++ {
-				member := compData.Members[i]
-				b.WriteString(fmt.Sprintf("    %s: ", member.Name))
-
-				// Format value based on type
-				valueStr := fmt.Sprintf("%v", member.Value)
-				if len(valueStr) > 50 {
-					valueStr = valueStr[:47] + "..."
+				// Show more members with scrolling support
+				maxDisplay := 20
+				if len(compData.Members) < maxDisplay {
+					maxDisplay = len(compData.Members)
 				}
-				b.WriteString(fieldValueStyle.Render(valueStr))
-				b.WriteString("\n")
-			}
 
-			if len(compData.Members) > maxDisplay {
-				remaining := len(compData.Members) - maxDisplay
-				b.WriteString(helpStyle.Render(fmt.Sprintf("    ... and %d more", remaining)))
-				b.WriteString("\n")
+				for i := 0; i < maxDisplay; i++ {
+					member := compData.Members[i]
+
+					// Truncate member name if too long
+					memberName := member.Name
+					if len(memberName) > 25 {
+						memberName = memberName[:22] + "..."
+					}
+
+					b.WriteString(fmt.Sprintf("    %s: ", memberName))
+
+					// Format value based on type
+					valueStr := fmt.Sprintf("%v", member.Value)
+					if len(valueStr) > 40 {
+						valueStr = valueStr[:37] + "..."
+					}
+					b.WriteString(fieldValueStyle.Render(valueStr))
+					b.WriteString("\n")
+				}
+
+				if len(compData.Members) > maxDisplay {
+					remaining := len(compData.Members) - maxDisplay
+					b.WriteString(helpStyle.Render(fmt.Sprintf("    ... and %d more members", remaining)))
+					b.WriteString("\n")
+				}
 			}
+		} else {
+			b.WriteString(errorStyle.Render("  Failed to load component data"))
 		}
+	} else {
+		b.WriteString(helpStyle.Render("  Loading..."))
 	}
 }
 

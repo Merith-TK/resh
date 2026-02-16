@@ -91,14 +91,24 @@ func (m Model) handleTreeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		m.SelectCurrentItem()
 
-	case "alt+enter":
+	case "alt+enter", "f", "right", "l":
+		// Focus on selected slot (alternative keys for terminals that don't support Alt+Enter)
 		if err := m.FocusOnSlot(); err != nil {
 			// Error message already set
 		}
 
-	case "alt+backspace":
+	case "alt+backspace", "b", "left", "h":
+		// Go to parent slot (alternative keys)
 		if err := m.FocusOnParent(); err != nil {
 			// Error message already set
+		}
+
+	case "r":
+		// Refresh/reload current tree
+		if err := m.LoadTreeItems(); err != nil {
+			m.ErrorMessage = fmt.Sprintf("Failed to reload: %v", err)
+		} else {
+			m.StatusMessage = "Tree reloaded"
 		}
 	}
 
