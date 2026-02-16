@@ -1,6 +1,6 @@
 package shell
 
-import "github.com/Merith-TK/resonite-sh/pkg/resolink"
+import "github.com/Merith-TK/resh/pkg/resolink"
 
 // State represents the current session state
 type State struct {

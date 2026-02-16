@@ -5,8 +5,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/Merith-TK/resonite-sh/pkg/objects"
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/objects"
+	"github.com/Merith-TK/resh/pkg/resolink"
 )
 
 // VFS represents the virtual filesystem

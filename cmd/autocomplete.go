@@ -3,8 +3,8 @@ package cmd
 import (
 	"strings"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
-	"github.com/Merith-TK/resonite-sh/pkg/shell"
+	"github.com/Merith-TK/resh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/shell"
 )
 
 // completer implements readline.AutoCompleter for command and slot name completion

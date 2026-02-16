@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/resolink"
 )
 
 // InspectComponent retrieves full component data for inspection

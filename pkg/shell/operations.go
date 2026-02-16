@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/resolink"
 )
 
 // ListSlot retrieves the contents of a slot

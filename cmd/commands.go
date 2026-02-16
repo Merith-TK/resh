@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
-	"github.com/Merith-TK/resonite-sh/pkg/shell"
+	"github.com/Merith-TK/resh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/shell"
 )
 
 // listSlotContents displays the contents of a slot

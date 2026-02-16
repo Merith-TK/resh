@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Merith-TK/resonite-sh/pkg/repl/commands"
-	"github.com/Merith-TK/resonite-sh/pkg/resh"
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/repl/commands"
+	"github.com/Merith-TK/resh/pkg/resh"
+	"github.com/Merith-TK/resh/pkg/resolink"
 	"github.com/chzyer/readline"
 )
 

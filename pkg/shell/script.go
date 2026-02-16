@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/resolink"
 	lua "github.com/yuin/gopher-lua"
 )
 

@@ -1,4 +1,4 @@
-module github.com/Merith-TK/resonite-sh
+module github.com/Merith-TK/resh
 
 go 1.21
 

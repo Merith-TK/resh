@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/resolink"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

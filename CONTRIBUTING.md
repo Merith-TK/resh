@@ -64,7 +64,7 @@ cmd/ → pkg/shell/ → pkg/resolink/ → WebSocket
 
 ```bash
 # Clone repository
-git clone https://github.com/Merith-TK/resonite-sh.git
+git clone https://github.com/Merith-TK/resh.git
 cd resonite-sh
 
 # Install dependencies

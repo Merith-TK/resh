@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Merith-TK/resonite-sh/cmd"
+	"github.com/Merith-TK/resh/cmd"
 )
 
 func main() {

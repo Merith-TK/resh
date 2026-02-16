@@ -3,7 +3,7 @@ package shell
 import (
 	"fmt"
 
-	"github.com/Merith-TK/resonite-sh/pkg/resolink"
+	"github.com/Merith-TK/resh/pkg/resolink"
 )
 
 // SetBookmark saves a slot ID with a bookmark name

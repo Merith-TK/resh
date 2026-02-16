@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Merith-TK/resonite-sh/pkg/shell"
+	"github.com/Merith-TK/resh/pkg/shell"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
