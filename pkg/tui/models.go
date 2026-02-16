@@ -45,6 +45,7 @@ type Model struct {
 	FieldCursor   int         // Which field is selected in inspector
 	EditingField  bool        // Is user currently editing a field?
 	EditBuffer    string      // Buffer for field editing
+	EditFieldType string      // Type of field being edited (bool, float, string, etc.)
 
 	// UI state
 	Focus         FocusMode // Which panel has focus

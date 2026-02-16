@@ -151,12 +151,53 @@ func (m Model) handleFieldEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.EditBuffer = m.EditBuffer[:len(m.EditBuffer)-1]
 		}
 
+	// Ignore arrow keys and other navigation keys
+	case "up", "down", "left", "right", "tab":
+		// Do nothing, don't add to buffer
+		return m, nil
+
 	default:
-		// Add character to buffer
-		m.EditBuffer += msg.String()
+		// Type-aware input validation
+		if m.isValidInputForType(msg.String()) {
+			m.EditBuffer += msg.String()
+		}
 	}
 
 	return m, nil
+}
+
+// isValidInputForType checks if the input character is valid for the current field type
+func (m Model) isValidInputForType(input string) bool {
+	// Only accept single characters for validation
+	if len(input) != 1 {
+		return false
+	}
+
+	char := input[0]
+
+	// Check based on field type
+	switch m.EditFieldType {
+	case "bool":
+		// Bools should be toggled with Enter, not edited as text
+		return false
+
+	case "int", "long", "float", "double", "decimal":
+		// Allow digits, minus sign, and decimal point
+		return (char >= '0' && char <= '9') || char == '-' || char == '.'
+
+	case "float2", "float3", "float4", "floatQ":
+		// Vectors: allow digits, minus, decimal, space, comma, parentheses
+		return (char >= '0' && char <= '9') || char == '-' || char == '.' ||
+			char == ' ' || char == ',' || char == '(' || char == ')'
+
+	case "string":
+		// Strings accept any printable character
+		return char >= 32 && char <= 126
+
+	default:
+		// For unknown types, allow most printable characters
+		return char >= 32 && char <= 126
+	}
 }
 
 // handleCommandMode handles command entry mode
