@@ -30,3 +30,5 @@ Thumbs.db
 # Config
 .resonite-sh/
 !.resonite-sh/config.example.yaml
+
+.reference/

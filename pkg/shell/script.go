@@ -1,8 +1,12 @@
 package shell
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Merith-TK/resonite-sh/pkg/resolink"
 	lua "github.com/yuin/gopher-lua"
@@ -223,8 +227,247 @@ func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
 		return 1
 	}))
 
+	// update_component function -> RESH.update_component - updates component members
+	L.SetField(resh, "update_component", L.NewFunction(func(L *lua.LState) int {
+		componentID := L.CheckString(1)
+		membersTable := L.CheckTable(2)
+
+		// Convert Lua table to Go map
+		members := make(map[string]interface{})
+		membersTable.ForEach(func(key, value lua.LValue) {
+			keyStr := key.String()
+			members[keyStr] = convertFromLuaValue(value)
+		})
+
+		// Create component definition for update
+		compDef := &resolink.ComponentDefinition{
+			ID:      componentID,
+			Members: members,
+		}
+
+		// Update the component
+		err := ctx.Client.UpdateComponent(compDef)
+		if err != nil {
+			L.Push(lua.LBool(false))
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		L.Push(lua.LBool(true))
+		return 1
+	}))
+
+	// create_slot function -> RESH.create_slot - creates a new slot
+	L.SetField(resh, "create_slot", L.NewFunction(func(L *lua.LState) int {
+		name := L.CheckString(1)
+		parentID := L.CheckString(2)
+
+		// Generate a unique ID for the slot if not provided
+		// We'll use a timestamp-based approach similar to how Resonite does it
+		slotID := fmt.Sprintf("LuaSlot_%d", time.Now().UnixNano())
+
+		// Create slot definition using helper functions
+		slotDef := &resolink.SlotDefinition{
+			ID:     slotID,
+			Name:   resolink.NewValueString(name),
+			Parent: resolink.NewValueReference(parentID),
+		}
+
+		// Create the slot
+		resp, err := ctx.Client.AddSlot(slotDef)
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		if resp == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("response is nil"))
+			return 2
+		}
+
+		if !resp.Success {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(resp.ErrorInfo))
+			return 2
+		}
+
+		// If Data is present and has an ID, use that, otherwise use our provided ID
+		if resp.Data != nil && resp.Data.ID != "" {
+			L.Push(lua.LString(resp.Data.ID))
+		} else {
+			// Response doesn't include the slot data, so return the ID we provided
+			L.Push(lua.LString(slotID))
+		}
+		return 1
+	}))
+
+	// delete_slot function -> RESH.delete_slot - deletes a slot
+	L.SetField(resh, "delete_slot", L.NewFunction(func(L *lua.LState) int {
+		slotID := L.CheckString(1)
+
+		err := ctx.Client.RemoveSlot(slotID)
+		if err != nil {
+			L.Push(lua.LBool(false))
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		L.Push(lua.LBool(true))
+		return 1
+	}))
+
+	// create_component function -> RESH.create_component - creates a new component
+	L.SetField(resh, "create_component", L.NewFunction(func(L *lua.LState) int {
+		slotID := L.CheckString(1)
+		componentType := L.CheckString(2)
+
+		// Generate a truly unique ID using crypto/rand
+		randomBytes := make([]byte, 8)
+		rand.Read(randomBytes)
+		compID := fmt.Sprintf("LuaComp_%d_%s", time.Now().UnixNano(), hex.EncodeToString(randomBytes)[:12])
+
+		// Create component definition
+		compDef := &resolink.ComponentDefinition{
+			ID:            compID,
+			ComponentType: componentType,
+		}
+
+		// Create the component
+		resp, err := ctx.Client.AddComponent(slotID, compDef)
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		if resp == nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString("response is nil"))
+			return 2
+		}
+
+		if !resp.Success {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(resp.ErrorInfo))
+			return 2
+		}
+
+		// If Data is present and has an ID, use that, otherwise use our provided ID
+		if resp.Data != nil && resp.Data.ID != "" {
+			L.Push(lua.LString(resp.Data.ID))
+		} else {
+			// Response doesn't include the component data, so return the ID we provided
+			L.Push(lua.LString(compID))
+		}
+		return 1
+	}))
+
+	// delete_component function -> RESH.delete_component - deletes a component
+	L.SetField(resh, "delete_component", L.NewFunction(func(L *lua.LState) int {
+		componentID := L.CheckString(1)
+
+		err := ctx.Client.RemoveComponent(componentID)
+		if err != nil {
+			L.Push(lua.LBool(false))
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		L.Push(lua.LBool(true))
+		return 1
+	}))
+
+	// get_component_types function -> RESH.get_component_types - returns list of all component types
+	L.SetField(resh, "get_component_types", L.NewFunction(func(L *lua.LState) int {
+		types, err := ctx.Client.GetComponentTypeList()
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		result := L.NewTable()
+		for _, t := range types {
+			result.Append(lua.LString(t))
+		}
+		L.Push(result)
+		return 1
+	}))
+
+	// get_component_definition function -> RESH.get_component_definition - returns component type definition
+	L.SetField(resh, "get_component_definition", L.NewFunction(func(L *lua.LState) int {
+		compType := L.CheckString(1)
+
+		rawDef, err := ctx.Client.GetComponentDefinition(compType)
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		// Parse the raw JSON into a map
+		var defMap map[string]interface{}
+		if jsonErr := json.Unmarshal(rawDef, &defMap); jsonErr != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(jsonErr.Error()))
+			return 2
+		}
+
+		L.Push(convertToLuaValue(L, defMap))
+		return 1
+	}))
+
 	// Set RESH table as global
 	L.SetGlobal("RESH", resh)
+}
+
+// convertFromLuaValue converts a Lua value to a Go value
+func convertFromLuaValue(lv lua.LValue) interface{} {
+	switch v := lv.(type) {
+	case *lua.LNilType:
+		return nil
+	case lua.LBool:
+		return bool(v)
+	case lua.LNumber:
+		return float64(v)
+	case lua.LString:
+		return string(v)
+	case *lua.LTable:
+		// Check if it's an array or map
+		isArray := true
+		length := 0
+		v.ForEach(func(key, val lua.LValue) {
+			if num, ok := key.(lua.LNumber); ok {
+				if int(num) != length+1 {
+					isArray = false
+				}
+				length++
+			} else {
+				isArray = false
+			}
+		})
+
+		if isArray {
+			// Convert to array
+			arr := make([]interface{}, 0, length)
+			for i := 1; i <= length; i++ {
+				val := v.RawGetInt(i)
+				arr = append(arr, convertFromLuaValue(val))
+			}
+			return arr
+		} else {
+			// Convert to map
+			m := make(map[string]interface{})
+			v.ForEach(func(key, val lua.LValue) {
+				m[key.String()] = convertFromLuaValue(val)
+			})
+			return m
+		}
+	default:
+		return v.String()
+	}
 }
 
 // convertToLuaValue converts a Go value to an appropriate Lua value

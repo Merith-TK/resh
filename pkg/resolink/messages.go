@@ -77,6 +77,7 @@ type RemoveComponentMessage struct {
 // GetComponentTypeListMessage requests list of all component types
 type GetComponentTypeListMessage struct {
 	BaseMessage
+	CategoryPath string `json:"categoryPath"`
 }
 
 // GetComponentDefinitionMessage requests component type definition
@@ -225,6 +226,26 @@ func NewValueFloat(value float64) *ValueFloat {
 	return &ValueFloat{Type: "float", Value: value}
 }
 
+// Float2 represents a 2D vector
+type Float2 struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+// ValueFloat2 represents a float2 value
+type ValueFloat2 struct {
+	Type  string  `json:"$type"`
+	Value *Float2 `json:"value"`
+}
+
+// NewValueFloat2 creates a new float2 value
+func NewValueFloat2(x, y float64) *ValueFloat2 {
+	return &ValueFloat2{
+		Type:  "float2",
+		Value: &Float2{X: x, Y: y},
+	}
+}
+
 // Float3 represents a 3D vector
 type Float3 struct {
 	X float64 `json:"x"`
@@ -265,6 +286,37 @@ func NewValueFloatQ(x, y, z, w float64) *ValueFloatQ {
 	return &ValueFloatQ{
 		Type:  "floatQ",
 		Value: &FloatQ{X: x, Y: y, Z: z, W: w},
+	}
+}
+
+// ValueDouble represents a double-precision float value
+type ValueDouble struct {
+	Type  string  `json:"$type"`
+	Value float64 `json:"value"`
+}
+
+// NewValueDouble creates a new double value
+func NewValueDouble(value float64) *ValueDouble {
+	return &ValueDouble{Type: "double", Value: value}
+}
+
+// Int2 represents a 2D integer vector
+type Int2 struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+// ValueInt2 represents an int2 value
+type ValueInt2 struct {
+	Type  string `json:"$type"`
+	Value *Int2  `json:"value"`
+}
+
+// NewValueInt2 creates a new int2 value
+func NewValueInt2(x, y int) *ValueInt2 {
+	return &ValueInt2{
+		Type:  "int2",
+		Value: &Int2{X: x, Y: y},
 	}
 }
 
@@ -339,9 +391,11 @@ type ComponentDataResponse struct {
 
 // ComponentTypeListResponse is the response for getComponentTypeList
 type ComponentTypeListResponse struct {
-	MessageID string   `json:"messageId"`
-	Type      string   `json:"$type"`
-	Types     []string `json:"types"`
+	MessageID           string   `json:"messageId"`
+	Type                string   `json:"$type"`
+	ComponentTypes      []string `json:"componentTypes"`
+	SubCategories       []string `json:"subcategories,omitempty"`
+	TotalComponentCount int      `json:"totalComponentCount,omitempty"`
 }
 
 // ErrorResponse represents an error from Resonite

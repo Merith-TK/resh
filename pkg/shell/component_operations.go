@@ -234,6 +234,58 @@ func convertValueByType(value interface{}, targetType string) (interface{}, erro
 			"w": w,
 		}, nil
 
+	case "colorX", "color":
+		// Parse format: r,g,b,a or [r,g,b,a]
+		clean := strings.Trim(valueStr, "[]")
+		var r, g, b, a float64
+		if _, err := fmt.Sscanf(clean, "%f,%f,%f,%f", &r, &g, &b, &a); err != nil {
+			return nil, fmt.Errorf("invalid colorX value: %s (use r,g,b,a)", valueStr)
+		}
+		return map[string]interface{}{
+			"r": r,
+			"g": g,
+			"b": b,
+			"a": a,
+		}, nil
+
+	case "float2":
+		// Parse format: x,y or [x,y]
+		clean := strings.Trim(valueStr, "[]")
+		var x, y float64
+		if _, err := fmt.Sscanf(clean, "%f,%f", &x, &y); err != nil {
+			return nil, fmt.Errorf("invalid float2 value: %s (use x,y)", valueStr)
+		}
+		return map[string]interface{}{
+			"x": x,
+			"y": y,
+		}, nil
+
+	case "double":
+		var doubleVal float64
+		if _, err := fmt.Sscanf(valueStr, "%f", &doubleVal); err != nil {
+			return nil, fmt.Errorf("invalid double value: %s", valueStr)
+		}
+		return doubleVal, nil
+
+	case "long":
+		var longVal int64
+		if _, err := fmt.Sscanf(valueStr, "%d", &longVal); err != nil {
+			return nil, fmt.Errorf("invalid long value: %s", valueStr)
+		}
+		return longVal, nil
+
+	case "int2":
+		// Parse format: x,y or [x,y]
+		clean := strings.Trim(valueStr, "[]")
+		var x, y int
+		if _, err := fmt.Sscanf(clean, "%d,%d", &x, &y); err != nil {
+			return nil, fmt.Errorf("invalid int2 value: %s (use x,y)", valueStr)
+		}
+		return map[string]interface{}{
+			"x": x,
+			"y": y,
+		}, nil
+
 	case "string", "Uri":
 		return valueStr, nil
 
