@@ -125,8 +125,8 @@ type DataModelOperationBatchMessage struct {
 type SlotDefinition struct {
 	ID          string               `json:"id,omitempty"`
 	Name        *ValueString         `json:"name,omitempty"`
-	Active      *ValueBool           `json:"active,omitempty"`
-	Persistent  *ValueBool           `json:"persistent,omitempty"`
+	Active      *ValueBool           `json:"isActive,omitempty"`
+	Persistent  *ValueBool           `json:"isPersistent,omitempty"`
 	Position    *ValueFloat3         `json:"position,omitempty"`
 	Rotation    *ValueFloatQ         `json:"rotation,omitempty"`
 	Scale       *ValueFloat3         `json:"scale,omitempty"`
