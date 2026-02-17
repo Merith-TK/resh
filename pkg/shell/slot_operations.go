@@ -153,7 +153,7 @@ func SetSlotProperty(client *resolink.Client, slotID string, propertyName string
 	}
 
 	// Convert value to appropriate type
-	convertedValue, err := convertSlotValueByType(newValue, propType)
+	convertedValue, err := ConvertSlotValueByType(newValue, propType)
 	if err != nil {
 		return fmt.Errorf("value conversion failed: %w", err)
 	}
@@ -199,8 +199,8 @@ func SetSlotProperty(client *resolink.Client, slotID string, propertyName string
 	return nil
 }
 
-// convertSlotValueByType converts a value string to the appropriate type for slots
-func convertSlotValueByType(value interface{}, targetType string) (interface{}, error) {
+// ConvertSlotValueByType converts a value string to the appropriate type for slots
+func ConvertSlotValueByType(value interface{}, targetType string) (interface{}, error) {
 	valueStr, ok := value.(string)
 	if !ok {
 		return value, nil // Already converted

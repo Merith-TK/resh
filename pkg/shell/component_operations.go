@@ -141,7 +141,7 @@ func SetComponentMember(client *resolink.Client, componentID string, memberIDOrN
 	}
 
 	// Convert value to appropriate type
-	convertedValue, err := convertValueByType(newValue, memberType)
+	convertedValue, err := ConvertComponentValueByType(newValue, memberType)
 	if err != nil {
 		return fmt.Errorf("value conversion failed: %w", err)
 	}
@@ -188,8 +188,8 @@ func SetComponentMember(client *resolink.Client, componentID string, memberIDOrN
 	return nil
 }
 
-// convertValueByType converts a value string to the appropriate type
-func convertValueByType(value interface{}, targetType string) (interface{}, error) {
+// ConvertComponentValueByType converts a value string to the appropriate type for component members
+func ConvertComponentValueByType(value interface{}, targetType string) (interface{}, error) {
 	valueStr, ok := value.(string)
 	if !ok {
 		return value, nil // Already converted

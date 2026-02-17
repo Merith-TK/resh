@@ -228,25 +228,72 @@ func registerShellFunctions(L *lua.LState, ctx *ScriptContext) {
 	}))
 
 	// update_component function -> RESH.update_component - updates component members
+	// Uses shared SetComponentMember function for consistency across modes
 	L.SetField(resh, "update_component", L.NewFunction(func(L *lua.LState) int {
 		componentID := L.CheckString(1)
 		membersTable := L.CheckTable(2)
 
-		// Convert Lua table to Go map
-		members := make(map[string]interface{})
+		// Update each member using the shared function
+		var lastErr error
 		membersTable.ForEach(func(key, value lua.LValue) {
-			keyStr := key.String()
-			members[keyStr] = convertFromLuaValue(value)
+			if lastErr != nil {
+				return
+			}
+
+			memberName := key.String()
+			memberValue := convertFromLuaValue(value)
+
+			// Call the shared SetComponentMember function
+			err := SetComponentMember(ctx.Client, componentID, memberName, memberValue)
+			if err != nil {
+				lastErr = err
+			}
 		})
 
-		// Create component definition for update
-		compDef := &resolink.ComponentDefinition{
-			ID:      componentID,
-			Members: members,
+		if lastErr != nil {
+			L.Push(lua.LBool(false))
+			L.Push(lua.LString(lastErr.Error()))
+			return 2
 		}
 
-		// Update the component
-		err := ctx.Client.UpdateComponent(compDef)
+		L.Push(lua.LBool(true))
+		return 1
+	}))
+
+	// set_slot_property function -> RESH.set_slot_property - sets a slot property
+	// Uses shared SetSlotProperty function for consistency
+	L.SetField(resh, "set_slot_property", L.NewFunction(func(L *lua.LState) int {
+		slotID := L.CheckString(1)
+		propertyName := L.CheckString(2)
+		value := L.CheckAny(3)
+
+		// Convert Lua value to Go value
+		goValue := convertFromLuaValue(value)
+
+		// Call the shared SetSlotProperty function
+		err := SetSlotProperty(ctx.Client, slotID, propertyName, goValue)
+		if err != nil {
+			L.Push(lua.LBool(false))
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		L.Push(lua.LBool(true))
+		return 1
+	}))
+
+	// set_component_member function -> RESH.set_component_member - sets a component member
+	// Uses shared SetComponentMember function for consistency
+	L.SetField(resh, "set_component_member", L.NewFunction(func(L *lua.LState) int {
+		componentID := L.CheckString(1)
+		memberName := L.CheckString(2)
+		value := L.CheckAny(3)
+
+		// Convert Lua value to Go value
+		goValue := convertFromLuaValue(value)
+
+		// Call the shared SetComponentMember function
+		err := SetComponentMember(ctx.Client, componentID, memberName, goValue)
 		if err != nil {
 			L.Push(lua.LBool(false))
 			L.Push(lua.LString(err.Error()))

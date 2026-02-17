@@ -719,7 +719,26 @@ func (m *Model) saveSlotField(newValue string) error {
 		return fmt.Errorf("invalid slot data")
 	}
 
-	// Find the property being edited using EditFieldName
+	// If editing a subfield (e.g., Position.x), handle it specially
+	if m.EditSubField != "" {
+		return m.saveSlotSubfield(slotData, newValue)
+	}
+
+	logger.Debug("saveSlotField: Using shared shell.SetSlotProperty for %s=%s", m.EditFieldName, newValue)
+
+	// Use the shared function from shell package
+	if err := shell.SetSlotProperty(m.Client, slotData.ID, m.EditFieldName, newValue); err != nil {
+		logger.Error("saveSlotField: SetSlotProperty FAILED: %v", err)
+		return fmt.Errorf("SetSlotProperty call failed: %w", err)
+	}
+
+	logger.Debug("saveSlotField: SetSlotProperty succeeded")
+	return nil
+}
+
+// saveSlotSubfield handles editing individual components of composite types (e.g., Position.x)
+func (m *Model) saveSlotSubfield(slotData *shell.SlotData, newValue string) error {
+	// Find the property being edited
 	var targetProp *shell.SlotProperty
 	for i := range slotData.Properties {
 		if slotData.Properties[i].Name == m.EditFieldName {
@@ -729,133 +748,66 @@ func (m *Model) saveSlotField(newValue string) error {
 	}
 
 	if targetProp == nil {
-		return fmt.Errorf("field '%s' not found in slot (searched %d properties)", m.EditFieldName, len(slotData.Properties))
+		return fmt.Errorf("field '%s' not found in slot", m.EditFieldName)
 	}
 
-	// Handle subfield editing for composite types
-	if m.EditSubField != "" {
-		// Editing a component of a composite type (float3, floatQ)
-		parsedFloat, err := fmt.Sscanf(newValue, "%f", new(float64))
-		if parsedFloat != 1 || err != nil {
-			return fmt.Errorf("invalid number: %s", newValue)
+	// Parse the new value as a float
+	var floatVal float64
+	if _, err := fmt.Sscanf(newValue, "%f", &floatVal); err != nil {
+		return fmt.Errorf("invalid number: %s", newValue)
+	}
+
+	logger.Debug("saveSlotSubfield: Updating %s.%s to %.8f", m.EditFieldName, m.EditSubField, floatVal)
+
+	// Handle composite types
+	if targetProp.Type == "float3" {
+		currentVal, ok := targetProp.Value.(*resolink.Float3)
+		if !ok {
+			return fmt.Errorf("invalid float3 value")
 		}
 
-		var floatVal float64
-		fmt.Sscanf(newValue, "%f", &floatVal)
-
-		// Get current composite value and update the specific component
-		if targetProp.Type == "float3" {
-			currentVal, ok := targetProp.Value.(*resolink.Float3)
-			if !ok {
-				return fmt.Errorf("invalid float3 value")
-			}
-			// Update the appropriate component
-			switch m.EditSubField {
-			case "x":
-				currentVal.X = floatVal
-			case "y":
-				currentVal.Y = floatVal
-			case "z":
-				currentVal.Z = floatVal
-			}
-			// Create new value with updated component
-			parsedValue := resolink.NewValueFloat3(currentVal.X, currentVal.Y, currentVal.Z)
-
-			slotDef := &resolink.SlotDefinition{ID: slotData.ID}
-			switch targetProp.Name {
-			case "Position":
-				slotDef.Position = parsedValue
-			case "Scale":
-				slotDef.Scale = parsedValue
-			default:
-				return fmt.Errorf("unknown float3 field: %s", targetProp.Name)
-			}
-
-			return m.Client.UpdateSlot(slotDef)
-
-		} else if targetProp.Type == "floatQ" {
-			currentVal, ok := targetProp.Value.(*resolink.FloatQ)
-			if !ok {
-				return fmt.Errorf("invalid floatQ value")
-			}
-			// Update the appropriate component
-			switch m.EditSubField {
-			case "x":
-				currentVal.X = floatVal
-			case "y":
-				currentVal.Y = floatVal
-			case "z":
-				currentVal.Z = floatVal
-				// w is read-only per user request
-			}
-			// Create new value with updated component
-			parsedValue := resolink.NewValueFloatQ(currentVal.X, currentVal.Y, currentVal.Z, currentVal.W)
-
-			slotDef := &resolink.SlotDefinition{ID: slotData.ID}
-			switch targetProp.Name {
-			case "Rotation":
-				slotDef.Rotation = parsedValue
-			default:
-				return fmt.Errorf("unknown floatQ field: %s", targetProp.Name)
-			}
-
-			return m.Client.UpdateSlot(slotDef)
+		// Update the appropriate component
+		switch m.EditSubField {
+		case "x":
+			currentVal.X = floatVal
+		case "y":
+			currentVal.Y = floatVal
+		case "z":
+			currentVal.Z = floatVal
+		default:
+			return fmt.Errorf("unknown subfield: %s", m.EditSubField)
 		}
 
-		return fmt.Errorf("unsupported composite type: %s", targetProp.Type)
+		// Format as string and use shared function
+		newValueStr := fmt.Sprintf("%.8f,%.8f,%.8f", currentVal.X, currentVal.Y, currentVal.Z)
+		return shell.SetSlotProperty(m.Client, slotData.ID, m.EditFieldName, newValueStr)
+
+	} else if targetProp.Type == "floatQ" {
+		currentVal, ok := targetProp.Value.(*resolink.FloatQ)
+		if !ok {
+			return fmt.Errorf("invalid floatQ value")
+		}
+
+		// Update the appropriate component (w is read-only)
+		switch m.EditSubField {
+		case "x":
+			currentVal.X = floatVal
+		case "y":
+			currentVal.Y = floatVal
+		case "z":
+			currentVal.Z = floatVal
+		case "w":
+			return fmt.Errorf("w component is read-only")
+		default:
+			return fmt.Errorf("unknown subfield: %s", m.EditSubField)
+		}
+
+		// Format as string and use shared function
+		newValueStr := fmt.Sprintf("%.8f,%.8f,%.8f,%.8f", currentVal.X, currentVal.Y, currentVal.Z, currentVal.W)
+		return shell.SetSlotProperty(m.Client, slotData.ID, m.EditFieldName, newValueStr)
 	}
 
-	// Non-composite field editing
-	parsedValue, err := m.parseSlotValue(newValue, targetProp.Type)
-	if err != nil {
-		return fmt.Errorf("parse error for %s (type %s): %w", targetProp.Name, targetProp.Type, err)
-	}
-
-	logger.Debug("saveSlotField: field=%s, type=%s, newValue=%s, parsedValue=%v (type: %T)",
-		targetProp.Name, targetProp.Type, newValue, parsedValue, parsedValue)
-
-	// Build SlotDefinition with just the field being updated
-	slotDef := &resolink.SlotDefinition{
-		ID: slotData.ID,
-	}
-
-	// Set the appropriate field
-	switch targetProp.Name {
-	case "Name":
-		slotDef.Name = parsedValue.(*resolink.ValueString)
-	case "Active":
-		boolVal := parsedValue.(*resolink.ValueBool)
-		logger.Debug("saveSlotField: Setting Active bool: %v (JSON will have type=%s, value=%v)", boolVal, boolVal.Type, boolVal.Value)
-		slotDef.Active = boolVal
-	case "Tag":
-		slotDef.Tag = parsedValue.(*resolink.ValueString)
-	case "Persistent":
-		boolVal := parsedValue.(*resolink.ValueBool)
-		logger.Debug("saveSlotField: Setting Persistent bool: %v (JSON will have type=%s, value=%v)", boolVal, boolVal.Type, boolVal.Value)
-		slotDef.Persistent = boolVal
-	case "Position":
-		slotDef.Position = parsedValue.(*resolink.ValueFloat3)
-	case "Rotation":
-		slotDef.Rotation = parsedValue.(*resolink.ValueFloatQ)
-	case "Scale":
-		slotDef.Scale = parsedValue.(*resolink.ValueFloat3)
-	case "OrderOffset":
-		slotDef.OrderOffset = parsedValue.(*resolink.ValueLong)
-	default:
-		return fmt.Errorf("field %s cannot be edited", targetProp.Name)
-	}
-
-	logger.Debug("saveSlotField: Calling UpdateSlot with SlotID=%s, field=%s", slotDef.ID, targetProp.Name)
-
-	// Call UpdateSlot
-	if err := m.Client.UpdateSlot(slotDef); err != nil {
-		logger.Error("saveSlotField: UpdateSlot FAILED: %v", err)
-		return fmt.Errorf("UpdateSlot call failed: %w", err)
-	}
-
-	logger.Debug("saveSlotField: UpdateSlot succeeded")
-
-	return nil
+	return fmt.Errorf("unsupported composite type: %s", targetProp.Type)
 }
 
 // saveComponentField saves a component member
@@ -865,6 +817,25 @@ func (m *Model) saveComponentField(newValue string) error {
 		return fmt.Errorf("invalid component data")
 	}
 
+	// If editing a subfield (e.g., Position.x), handle it specially
+	if m.EditSubField != "" {
+		return m.saveComponentSubfield(compData, newValue)
+	}
+
+	logger.Debug("saveComponentField: Using shared shell.SetComponentMember for %s=%s", m.EditFieldName, newValue)
+
+	// Use the shared function from shell package
+	if err := shell.SetComponentMember(m.Client, compData.ID, m.EditFieldName, newValue); err != nil {
+		logger.Error("saveComponentField: SetComponentMember FAILED: %v", err)
+		return fmt.Errorf("SetComponentMember call failed: %w", err)
+	}
+
+	logger.Debug("saveComponentField: SetComponentMember succeeded")
+	return nil
+}
+
+// saveComponentSubfield handles editing individual components of composite types
+func (m *Model) saveComponentSubfield(compData *shell.ComponentData, newValue string) error {
 	// Find the member being edited
 	var targetMember *shell.MemberData
 	for i := range compData.Members {
@@ -875,216 +846,49 @@ func (m *Model) saveComponentField(newValue string) error {
 	}
 
 	if targetMember == nil {
-		return fmt.Errorf("member not found")
+		return fmt.Errorf("member '%s' not found in component", m.EditFieldName)
 	}
 
-	// Handle subfield editing for composite types
-	if m.EditSubField != "" {
-		// Editing a component of a composite type (float2/3/4, floatQ)
-		parsedFloat, err := fmt.Sscanf(newValue, "%f", new(float64))
-		if parsedFloat != 1 || err != nil {
-			return fmt.Errorf("invalid number: %s", newValue)
-		}
+	// Parse the new value as a float
+	var floatVal float64
+	if _, err := fmt.Sscanf(newValue, "%f", &floatVal); err != nil {
+		return fmt.Errorf("invalid number: %s", newValue)
+	}
 
-		var floatVal float64
-		fmt.Sscanf(newValue, "%f", &floatVal)
+	logger.Debug("saveComponentSubfield: Updating %s.%s to %.8f", m.EditFieldName, m.EditSubField, floatVal)
 
-		// Get current composite value and update the specific component
-		if valueMap, ok := targetMember.Value.(map[string]interface{}); ok {
-			// Create a copy of the map to update
-			newMap := make(map[string]interface{})
-			for k, v := range valueMap {
-				newMap[k] = v
-			}
-			// Update the specific component
-			newMap[m.EditSubField] = floatVal
-
-			// Build ComponentDefinition with the updated member
-			compDef := &resolink.ComponentDefinition{
-				ID:            compData.ID,
-				ComponentType: compData.ComponentType,
-				Members: map[string]interface{}{
-					targetMember.Name: newMap,
-				},
-			}
-
-			return m.Client.UpdateComponent(compDef)
-		}
-
+	// Get current composite value and update the specific component
+	valueMap, ok := targetMember.Value.(map[string]interface{})
+	if !ok {
 		return fmt.Errorf("invalid composite value")
 	}
 
-	// Non-composite field editing
-	parsedValue, err := m.parseComponentValue(newValue, targetMember.Type)
-	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+	// Create a copy and update the component
+	newMap := make(map[string]interface{})
+	for k, v := range valueMap {
+		newMap[k] = v
+	}
+	newMap[m.EditSubField] = floatVal
+
+	// Format as string for the shared function
+	var newValueStr string
+	if x, okX := newMap["x"].(float64); okX {
+		if y, okY := newMap["y"].(float64); okY {
+			if z, okZ := newMap["z"].(float64); okZ {
+				if w, okW := newMap["w"].(float64); okW {
+					// floatQ format
+					newValueStr = fmt.Sprintf("%.8f,%.8f,%.8f,%.8f", x, y, z, w)
+				} else {
+					// float3 format
+					newValueStr = fmt.Sprintf("%.8f,%.8f,%.8f", x, y, z)
+				}
+			}
+		}
 	}
 
-	// Build ComponentDefinition with the updated member
-	compDef := &resolink.ComponentDefinition{
-		ID:            compData.ID,
-		ComponentType: compData.ComponentType,
-		Members: map[string]interface{}{
-			targetMember.Name: parsedValue,
-		},
+	if newValueStr == "" {
+		return fmt.Errorf("could not format composite value")
 	}
 
-	// Call UpdateComponent
-	if err := m.Client.UpdateComponent(compDef); err != nil {
-		return fmt.Errorf("update failed: %w", err)
-	}
-
-	return nil
-}
-
-// parseSlotValue parses a string value into the appropriate type for slot properties
-func (m *Model) parseSlotValue(valueStr string, fieldType string) (interface{}, error) {
-	switch fieldType {
-	case "string":
-		return resolink.NewValueString(valueStr), nil
-
-	case "bool":
-		logger.Debug("parseSlotValue: parsing bool from '%s'", valueStr)
-		if valueStr == "true" {
-			result := resolink.NewValueBool(true)
-			logger.Debug("parseSlotValue: bool parsed to true, struct=%#v", result)
-			return result, nil
-		} else if valueStr == "false" {
-			result := resolink.NewValueBool(false)
-			logger.Debug("parseSlotValue: bool parsed to false, struct=%#v", result)
-			return result, nil
-		}
-		logger.Error("parseSlotValue: invalid bool value: %s", valueStr)
-		return nil, fmt.Errorf("invalid bool value: %s (must be true or false)", valueStr)
-
-	case "long":
-		var longVal int64
-		if _, err := fmt.Sscanf(valueStr, "%d", &longVal); err != nil {
-			return nil, fmt.Errorf("invalid long value: %s", valueStr)
-		}
-		return resolink.NewValueLong(longVal), nil
-
-	case "float3":
-		// Parse format: x,y,z or [x,y,z]
-		clean := strings.Trim(valueStr, "[]")
-		var x, y, z float64
-		if _, err := fmt.Sscanf(clean, "%f,%f,%f", &x, &y, &z); err != nil {
-			return nil, fmt.Errorf("invalid float3 value: %s (use x,y,z)", valueStr)
-		}
-		return resolink.NewValueFloat3(x, y, z), nil
-
-	case "floatQ":
-		// Parse format: x,y,z,w or [x,y,z,w]
-		clean := strings.Trim(valueStr, "[]")
-		var x, y, z, w float64
-		if _, err := fmt.Sscanf(clean, "%f,%f,%f,%f", &x, &y, &z, &w); err != nil {
-			return nil, fmt.Errorf("invalid floatQ value: %s (use x,y,z,w)", valueStr)
-		}
-		return resolink.NewValueFloatQ(x, y, z, w), nil
-
-	case "reference":
-		// Convert display format if needed
-		if strings.HasPrefix(valueStr, "ID_") {
-			valueStr = strings.Replace(valueStr, "ID_", "Reso_", 1)
-		}
-		return resolink.NewValueReference(valueStr), nil
-
-	default:
-		return nil, fmt.Errorf("unsupported field type: %s", fieldType)
-	}
-}
-
-// parseComponentValue parses a string value into the appropriate type for component members
-func (m *Model) parseComponentValue(valueStr string, fieldType string) (interface{}, error) {
-	switch fieldType {
-	case "bool":
-		if valueStr == "true" || valueStr == "1" {
-			return true, nil
-		} else if valueStr == "false" || valueStr == "0" {
-			return false, nil
-		}
-		return nil, fmt.Errorf("invalid bool value: %s (use true/false)", valueStr)
-
-	case "int":
-		var intVal int
-		if _, err := fmt.Sscanf(valueStr, "%d", &intVal); err != nil {
-			return nil, fmt.Errorf("invalid int value: %s", valueStr)
-		}
-		return intVal, nil
-
-	case "long":
-		var longVal int64
-		if _, err := fmt.Sscanf(valueStr, "%d", &longVal); err != nil {
-			return nil, fmt.Errorf("invalid long value: %s", valueStr)
-		}
-		return longVal, nil
-
-	case "float", "double":
-		var floatVal float64
-		if _, err := fmt.Sscanf(valueStr, "%f", &floatVal); err != nil {
-			return nil, fmt.Errorf("invalid %s value: %s", fieldType, valueStr)
-		}
-		return floatVal, nil
-
-	case "string":
-		return valueStr, nil
-
-	case "float2":
-		// Parse format: x,y or [x,y]
-		clean := strings.Trim(valueStr, "[]")
-		var x, y float64
-		if _, err := fmt.Sscanf(clean, "%f,%f", &x, &y); err != nil {
-			return nil, fmt.Errorf("invalid float2 value: %s (use x,y)", valueStr)
-		}
-		return map[string]interface{}{
-			"x": x,
-			"y": y,
-		}, nil
-
-	case "float3":
-		// Parse format: x,y,z or [x,y,z]
-		clean := strings.Trim(valueStr, "[]")
-		var x, y, z float64
-		if _, err := fmt.Sscanf(clean, "%f,%f,%f", &x, &y, &z); err != nil {
-			return nil, fmt.Errorf("invalid float3 value: %s (use x,y,z)", valueStr)
-		}
-		return map[string]interface{}{
-			"x": x,
-			"y": y,
-			"z": z,
-		}, nil
-
-	case "floatQ":
-		// Parse format: x,y,z,w or [x,y,z,w]
-		clean := strings.Trim(valueStr, "[]")
-		var x, y, z, w float64
-		if _, err := fmt.Sscanf(clean, "%f,%f,%f,%f", &x, &y, &z, &w); err != nil {
-			return nil, fmt.Errorf("invalid floatQ value: %s (use x,y,z,w)", valueStr)
-		}
-		return map[string]interface{}{
-			"x": x,
-			"y": y,
-			"z": z,
-			"w": w,
-		}, nil
-
-	case "color", "colorX":
-		// Parse format: r,g,b,a or [r,g,b,a]
-		clean := strings.Trim(valueStr, "[]")
-		var r, g, b, a float64
-		if _, err := fmt.Sscanf(clean, "%f,%f,%f,%f", &r, &g, &b, &a); err != nil {
-			return nil, fmt.Errorf("invalid color value: %s (use r,g,b,a)", valueStr)
-		}
-		return map[string]interface{}{
-			"r": r,
-			"g": g,
-			"b": b,
-			"a": a,
-		}, nil
-
-	default:
-		// For unknown types, try to return as-is
-		// This allows for more complex types to potentially work
-		return valueStr, nil
-	}
+	return shell.SetComponentMember(m.Client, compData.ID, m.EditFieldName, newValueStr)
 }
