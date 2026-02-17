@@ -3,6 +3,8 @@ package resolink
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/Merith-TK/resh/pkg/logger"
 )
 
 // GetSlot retrieves slot information
@@ -18,17 +20,22 @@ func (c *Client) GetSlot(slotID string, includeComponents bool, depth int) (*Slo
 
 	rawResp, err := c.sendMessage(msg)
 	if err != nil {
+		logger.Error("GetSlot sendMessage error: %v", err)
 		return nil, err
 	}
+
+	logger.Debug("GetSlot raw response for %s: %s", slotID, string(rawResp))
 
 	// Parse as slot data response
 	var resp SlotDataResponse
 	if err := json.Unmarshal(rawResp, &resp); err != nil {
+		logger.Error("GetSlot unmarshal error: %v", err)
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	// Check for error
 	if !resp.Success {
+		logger.Error("GetSlot operation failed: %s", resp.ErrorInfo)
 		return nil, fmt.Errorf("slot operation failed: %s", resp.ErrorInfo)
 	}
 
@@ -77,17 +84,29 @@ func (c *Client) UpdateSlot(data *SlotDefinition) error {
 		Data: data,
 	}
 
+	// Log what we're about to send
+	msgJSON, _ := json.MarshalIndent(msg, "", "  ")
+	logger.Debug("UpdateSlot sending message:\n%s", string(msgJSON))
+
+	// Also log the struct details
+	logger.JSON("SlotDefinition", data)
+
 	rawResp, err := c.sendMessage(msg)
 	if err != nil {
+		logger.Error("UpdateSlot sendMessage error: %v", err)
 		return err
 	}
+
+	logger.Debug("UpdateSlot response: %s", string(rawResp))
 
 	// Check for error response
 	var errResp ErrorResponse
 	if err := json.Unmarshal(rawResp, &errResp); err == nil && errResp.Error != "" {
+		logger.Error("UpdateSlot server error: %s", errResp.Error)
 		return fmt.Errorf("server error: %s", errResp.Error)
 	}
 
+	logger.Debug("UpdateSlot completed successfully")
 	return nil
 }
 
@@ -116,7 +135,7 @@ func (c *Client) RemoveSlot(slotID string) error {
 
 // FindSlotByName searches for a slot by name (helper method)
 // This is a convenience method that gets a slot and searches its children
-func (c *Client) FindSlotByName(parentID, name string) (*SlotDefinition, error) {
+func (c *Client) FindSlotByName(parentID, name string) (*SlotResponse, error) {
 	// Get parent slot with children (depth 1)
 	resp, err := c.GetSlot(parentID, false, 1)
 	if err != nil {

@@ -32,3 +32,4 @@ Thumbs.db
 !.resonite-sh/config.example.yaml
 
 .reference/
+*.log

@@ -369,14 +369,31 @@ func NewValueColor(r, g, b, a float64) *ValueColor {
 // ============================================================================
 
 // SlotDataResponse is the response for getSlot
+// SlotDataResponse is the response for getSlot
 type SlotDataResponse struct {
-	SourceMessageID string          `json:"sourceMessageId"`
-	MessageID       string          `json:"messageId"`
-	Type            string          `json:"$type"`
-	Depth           int             `json:"depth"`
-	Data            *SlotDefinition `json:"data"`
-	Success         bool            `json:"success"`
-	ErrorInfo       string          `json:"errorInfo,omitempty"`
+	SourceMessageID string        `json:"sourceMessageId"`
+	MessageID       string        `json:"messageId"`
+	Type            string        `json:"$type"`
+	Depth           int           `json:"depth"`
+	Data            *SlotResponse `json:"data"`
+	Success         bool          `json:"success"`
+	ErrorInfo       string        `json:"errorInfo,omitempty"`
+}
+
+// SlotResponse is the actual slot data returned by the server (note: uses isActive, isPersistent)
+type SlotResponse struct {
+	ID           string               `json:"id,omitempty"`
+	Name         *ValueString         `json:"name,omitempty"`
+	IsActive     *ValueBool           `json:"isActive,omitempty"`
+	IsPersistent *ValueBool           `json:"isPersistent,omitempty"`
+	Position     *ValueFloat3         `json:"position,omitempty"`
+	Rotation     *ValueFloatQ         `json:"rotation,omitempty"`
+	Scale        *ValueFloat3         `json:"scale,omitempty"`
+	OrderOffset  *ValueLong           `json:"orderOffset,omitempty"`
+	Tag          *ValueString         `json:"tag,omitempty"`
+	Parent       *ValueReference      `json:"parent,omitempty"`
+	Components   []ComponentReference `json:"components,omitempty"`
+	Children     []SlotReference      `json:"children,omitempty"`
 }
 
 // ComponentDataResponse is the response for getComponent

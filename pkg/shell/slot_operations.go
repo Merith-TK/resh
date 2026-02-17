@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Merith-TK/resh/pkg/logger"
 	"github.com/Merith-TK/resh/pkg/resolink"
 )
 
@@ -29,6 +30,15 @@ func InspectSlot(client *resolink.Client, slotID string) (*SlotData, error) {
 		Properties: make([]SlotProperty, 0),
 	}
 
+	// DEBUG: Log what we got from server
+	logger.Debug("InspectSlot: Server returned slotID=%s, IsActive=%v (nil=%v), IsPersistent=%v (nil=%v)",
+		resp.Data.ID,
+		resp.Data.IsActive,
+		resp.Data.IsActive == nil,
+		resp.Data.IsPersistent,
+		resp.Data.IsPersistent == nil,
+	)
+
 	// Parse slot properties
 	if resp.Data.Name != nil {
 		data.Properties = append(data.Properties, SlotProperty{
@@ -48,8 +58,11 @@ func InspectSlot(client *resolink.Client, slotID string) (*SlotData, error) {
 
 	// Always include Active field (default to true if not present)
 	activeValue := true
-	if resp.Data.Active != nil {
-		activeValue = resp.Data.Active.Value
+	if resp.Data.IsActive != nil {
+		activeValue = resp.Data.IsActive.Value
+		logger.Debug("InspectSlot: IsActive value from server: %v", activeValue)
+	} else {
+		logger.Debug("InspectSlot: IsActive was nil, defaulting to true")
 	}
 	data.Properties = append(data.Properties, SlotProperty{
 		Name:  "Active",
@@ -59,8 +72,8 @@ func InspectSlot(client *resolink.Client, slotID string) (*SlotData, error) {
 
 	// Always include Persistent field (default to false if not present)
 	persistentValue := false
-	if resp.Data.Persistent != nil {
-		persistentValue = resp.Data.Persistent.Value
+	if resp.Data.IsPersistent != nil {
+		persistentValue = resp.Data.IsPersistent.Value
 	}
 	data.Properties = append(data.Properties, SlotProperty{
 		Name:  "Persistent",

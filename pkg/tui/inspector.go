@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Merith-TK/resh/pkg/logger"
 	"github.com/Merith-TK/resh/pkg/resolink"
 	"github.com/Merith-TK/resh/pkg/shell"
 )
@@ -424,15 +425,19 @@ func (m *Model) MoveFieldCursorDown() {
 func (m *Model) StartEditingField() {
 	// Get current field type and value
 	fieldType := m.getCurrentFieldType()
+	fieldValue := m.getCurrentFieldValue()
+
 	if fieldType == "" {
 		m.ErrorMessage = "Cannot edit this field"
 		return
 	}
 
 	m.EditFieldType = fieldType
+	m.StatusMessage = fmt.Sprintf("Editing %s (type: %s, value: %s)", m.EditFieldName, fieldType, fieldValue)
 
 	// For bools, toggle immediately instead of entering edit mode
 	if fieldType == "bool" {
+		m.ErrorMessage = "" // Clear any previous errors
 		m.toggleBoolField()
 		return
 	}
@@ -482,6 +487,8 @@ func (m *Model) StopEditingField(save bool) {
 // getCurrentFieldValue gets the value of the currently selected field
 func (m *Model) getCurrentFieldValue() string {
 	if m.InspectedItem == nil || m.InspectedData == nil {
+		m.EditFieldName = ""
+		m.EditSubField = ""
 		return ""
 	}
 
@@ -520,7 +527,8 @@ func (m *Model) getCurrentFieldValue() string {
 					if fieldIndex == m.FieldCursor {
 						m.EditFieldName = prop.Name
 						m.EditSubField = ""
-						return formatPropertyValue(prop)
+						val := formatPropertyValue(prop)
+						return val
 					}
 					fieldIndex++
 				}
@@ -560,6 +568,9 @@ func (m *Model) getCurrentFieldValue() string {
 		}
 	}
 
+	// No field found at cursor position
+	m.EditFieldName = ""
+	m.EditSubField = ""
 	return ""
 }
 
@@ -622,31 +633,68 @@ func (m *Model) getCurrentFieldType() string {
 
 // toggleBoolField toggles a boolean field value
 func (m *Model) toggleBoolField() {
+	// First ensure EditFieldName is set by calling getCurrentFieldValue
 	currentValue := m.getCurrentFieldValue()
+
 	if currentValue == "" {
-		m.ErrorMessage = "Could not get current field value"
+		m.ErrorMessage = "Could not read bool field"
 		return
 	}
 
 	var newValue string
 	if currentValue == "true" {
 		newValue = "false"
-	} else {
+	} else if currentValue == "false" {
 		newValue = "true"
+	} else {
+		m.ErrorMessage = fmt.Sprintf("Invalid bool value: %s", currentValue)
+		return
 	}
 
+	// Log the attempted toggle
+	logger.Debug("toggleBoolField: field=%s, current=%s, new=%s", m.EditFieldName, currentValue, newValue)
+	if m.InspectedItem != nil {
+		logger.Debug("toggleBoolField: InspectedItem ID=%s, Type=%s, IsSlot=%v", m.InspectedItem.ID, m.InspectedItem.Type, m.InspectedItem.IsSlot)
+	}
+
+	m.StatusMessage = fmt.Sprintf("Attempting toggle of %s to %s...", m.EditFieldName, newValue)
+
 	if err := m.saveFieldValue(newValue); err != nil {
-		m.ErrorMessage = fmt.Sprintf("Toggle failed: %v", err)
-	} else {
-		m.StatusMessage = fmt.Sprintf("Field toggled to %s", newValue)
-		// Reload the item to show updated values
-		if m.InspectedItem != nil {
-			data, isSlot, err := shell.InspectItem(m.Client, m.InspectedItem.ID)
-			if err == nil && isSlot == m.InspectedItem.IsSlot {
-				m.InspectedData = data
-			} else if err != nil {
-				m.ErrorMessage = fmt.Sprintf("Reload failed: %v", err)
+		logger.Error("toggleBoolField: saveFieldValue FAILED: %v", err)
+		m.ErrorMessage = fmt.Sprintf("Bool toggle FAILED: %v", err)
+		m.StatusMessage = ""
+		return
+	}
+
+	logger.Debug("toggleBoolField: saveFieldValue succeeded, reloading...")
+
+	m.ErrorMessage = "" // Clear any errors
+	m.StatusMessage = fmt.Sprintf("Toggled %s to %s", m.EditFieldName, newValue)
+
+	// Reload the item to show updated values
+	if m.InspectedItem != nil {
+		data, isSlot, err := shell.InspectItem(m.Client, m.InspectedItem.ID)
+		if err != nil {
+			logger.Error("toggleBoolField: InspectItem FAILED: %v", err)
+			m.ErrorMessage = fmt.Sprintf("Reload FAILED after toggle: %v", err)
+			return
+		}
+		logger.Debug("toggleBoolField: InspectItem succeeded, isSlot=%v, expected=%v", isSlot, m.InspectedItem.IsSlot)
+		if isSlot == m.InspectedItem.IsSlot {
+			m.InspectedData = data
+			// Log the reloaded value
+			if isSlot {
+				slotData := data.(*shell.SlotData)
+				for _, prop := range slotData.Properties {
+					if prop.Name == m.EditFieldName {
+						logger.Debug("toggleBoolField: Reloaded %s = %v (type: %T)", m.EditFieldName, prop.Value, prop.Value)
+						break
+					}
+				}
 			}
+		} else {
+			logger.Error("toggleBoolField: Type mismatch: got isSlot=%v, expected=%v", isSlot, m.InspectedItem.IsSlot)
+			m.ErrorMessage = "Reload returned wrong type"
 		}
 	}
 }
@@ -681,7 +729,7 @@ func (m *Model) saveSlotField(newValue string) error {
 	}
 
 	if targetProp == nil {
-		return fmt.Errorf("field not found")
+		return fmt.Errorf("field '%s' not found in slot (searched %d properties)", m.EditFieldName, len(slotData.Properties))
 	}
 
 	// Handle subfield editing for composite types
@@ -760,8 +808,11 @@ func (m *Model) saveSlotField(newValue string) error {
 	// Non-composite field editing
 	parsedValue, err := m.parseSlotValue(newValue, targetProp.Type)
 	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+		return fmt.Errorf("parse error for %s (type %s): %w", targetProp.Name, targetProp.Type, err)
 	}
+
+	logger.Debug("saveSlotField: field=%s, type=%s, newValue=%s, parsedValue=%v (type: %T)",
+		targetProp.Name, targetProp.Type, newValue, parsedValue, parsedValue)
 
 	// Build SlotDefinition with just the field being updated
 	slotDef := &resolink.SlotDefinition{
@@ -773,11 +824,15 @@ func (m *Model) saveSlotField(newValue string) error {
 	case "Name":
 		slotDef.Name = parsedValue.(*resolink.ValueString)
 	case "Active":
-		slotDef.Active = parsedValue.(*resolink.ValueBool)
+		boolVal := parsedValue.(*resolink.ValueBool)
+		logger.Debug("saveSlotField: Setting Active bool: %v (JSON will have type=%s, value=%v)", boolVal, boolVal.Type, boolVal.Value)
+		slotDef.Active = boolVal
 	case "Tag":
 		slotDef.Tag = parsedValue.(*resolink.ValueString)
 	case "Persistent":
-		slotDef.Persistent = parsedValue.(*resolink.ValueBool)
+		boolVal := parsedValue.(*resolink.ValueBool)
+		logger.Debug("saveSlotField: Setting Persistent bool: %v (JSON will have type=%s, value=%v)", boolVal, boolVal.Type, boolVal.Value)
+		slotDef.Persistent = boolVal
 	case "Position":
 		slotDef.Position = parsedValue.(*resolink.ValueFloat3)
 	case "Rotation":
@@ -790,10 +845,15 @@ func (m *Model) saveSlotField(newValue string) error {
 		return fmt.Errorf("field %s cannot be edited", targetProp.Name)
 	}
 
+	logger.Debug("saveSlotField: Calling UpdateSlot with SlotID=%s, field=%s", slotDef.ID, targetProp.Name)
+
 	// Call UpdateSlot
 	if err := m.Client.UpdateSlot(slotDef); err != nil {
-		return fmt.Errorf("update failed: %w", err)
+		logger.Error("saveSlotField: UpdateSlot FAILED: %v", err)
+		return fmt.Errorf("UpdateSlot call failed: %w", err)
 	}
+
+	logger.Debug("saveSlotField: UpdateSlot succeeded")
 
 	return nil
 }
@@ -805,7 +865,7 @@ func (m *Model) saveComponentField(newValue string) error {
 		return fmt.Errorf("invalid component data")
 	}
 
-	// Find the member being edited using EditFieldName
+	// Find the member being edited
 	var targetMember *shell.MemberData
 	for i := range compData.Members {
 		if compData.Members[i].Name == m.EditFieldName {
@@ -884,11 +944,17 @@ func (m *Model) parseSlotValue(valueStr string, fieldType string) (interface{}, 
 		return resolink.NewValueString(valueStr), nil
 
 	case "bool":
+		logger.Debug("parseSlotValue: parsing bool from '%s'", valueStr)
 		if valueStr == "true" {
-			return resolink.NewValueBool(true), nil
+			result := resolink.NewValueBool(true)
+			logger.Debug("parseSlotValue: bool parsed to true, struct=%#v", result)
+			return result, nil
 		} else if valueStr == "false" {
-			return resolink.NewValueBool(false), nil
+			result := resolink.NewValueBool(false)
+			logger.Debug("parseSlotValue: bool parsed to false, struct=%#v", result)
+			return result, nil
 		}
+		logger.Error("parseSlotValue: invalid bool value: %s", valueStr)
 		return nil, fmt.Errorf("invalid bool value: %s (must be true or false)", valueStr)
 
 	case "long":

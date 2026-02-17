@@ -52,8 +52,8 @@ var testCmd = &cobra.Command{
 		if rootSlot.Data.Name != nil {
 			fmt.Printf("  Name: %s\n", rootSlot.Data.Name.Value)
 		}
-		if rootSlot.Data.Active != nil {
-			fmt.Printf("  Active: %v\n", rootSlot.Data.Active.Value)
+		if rootSlot.Data.IsActive != nil {
+			fmt.Printf("  IsActive: %v\n", rootSlot.Data.IsActive.Value)
 		}
 
 		// Test ListChildren
