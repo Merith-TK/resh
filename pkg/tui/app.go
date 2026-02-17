@@ -17,7 +17,7 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		return m.handleKeyPress(msg)
+		return (&m).handleKeyPress(msg)
 
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
@@ -29,7 +29,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKeyPress handles keyboard input
-func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Global keys (work regardless of focus)
 	switch msg.String() {
 	case "ctrl+c", "q":
@@ -80,7 +80,7 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleTreeKeys handles keys when tree has focus
-func (m Model) handleTreeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleTreeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		m.MoveCursorUp()
@@ -116,7 +116,7 @@ func (m Model) handleTreeKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleInspectorKeys handles keys when inspector has focus
-func (m Model) handleInspectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleInspectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		m.MoveFieldCursorUp()
@@ -136,7 +136,7 @@ func (m Model) handleInspectorKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // handleFieldEditing handles field editing mode
-func (m Model) handleFieldEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleFieldEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		m.StopEditingField(true) // Save
@@ -201,7 +201,7 @@ func (m Model) isValidInputForType(input string) bool {
 }
 
 // handleCommandMode handles command entry mode
-func (m Model) handleCommandMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleCommandMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		// Execute command

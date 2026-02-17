@@ -46,21 +46,27 @@ func InspectSlot(client *resolink.Client, slotID string) (*SlotData, error) {
 		})
 	}
 
+	// Always include Active field (default to true if not present)
+	activeValue := true
 	if resp.Data.Active != nil {
-		data.Properties = append(data.Properties, SlotProperty{
-			Name:  "Active",
-			Type:  "bool",
-			Value: resp.Data.Active.Value,
-		})
+		activeValue = resp.Data.Active.Value
 	}
+	data.Properties = append(data.Properties, SlotProperty{
+		Name:  "Active",
+		Type:  "bool",
+		Value: activeValue,
+	})
 
+	// Always include Persistent field (default to false if not present)
+	persistentValue := false
 	if resp.Data.Persistent != nil {
-		data.Properties = append(data.Properties, SlotProperty{
-			Name:  "Persistent",
-			Type:  "bool",
-			Value: resp.Data.Persistent.Value,
-		})
+		persistentValue = resp.Data.Persistent.Value
 	}
+	data.Properties = append(data.Properties, SlotProperty{
+		Name:  "Persistent",
+		Type:  "bool",
+		Value: persistentValue,
+	})
 
 	if resp.Data.Position != nil && resp.Data.Position.Value != nil {
 		data.Properties = append(data.Properties, SlotProperty{

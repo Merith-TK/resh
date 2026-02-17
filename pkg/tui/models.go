@@ -40,12 +40,15 @@ type Model struct {
 	PathBreadcrumb  []string   // Path breadcrumb for navigation
 
 	// Inspector panel state
-	InspectedItem *TreeItem   // Currently inspected item
-	InspectedData interface{} // Full data from RESH.inspect()
-	FieldCursor   int         // Which field is selected in inspector
-	EditingField  bool        // Is user currently editing a field?
-	EditBuffer    string      // Buffer for field editing
-	EditFieldType string      // Type of field being edited (bool, float, string, etc.)
+	InspectedItem  *TreeItem   // Currently inspected item
+	InspectedData  interface{} // Full data from RESH.inspect()
+	FieldCursor    int         // Which field is selected in inspector
+	SubFieldCursor int         // Which subfield (x/y/z/w) is selected for composite types
+	EditingField   bool        // Is user currently editing a field?
+	EditBuffer     string      // Buffer for field editing
+	EditFieldType  string      // Type of field being edited (bool, float, string, etc.)
+	EditFieldName  string      // Name of field being edited
+	EditSubField   string      // Subfield name (x/y/z/w) if editing composite type component
 
 	// UI state
 	Focus         FocusMode // Which panel has focus

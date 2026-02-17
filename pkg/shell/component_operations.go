@@ -2,6 +2,7 @@ package shell
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Merith-TK/resh/pkg/resolink"
@@ -67,7 +68,17 @@ func InspectComponent(client *resolink.Client, componentID string) (*ComponentDa
 		data.Members = append(data.Members, member)
 	}
 
+	// Sort members alphabetically by name for consistent display
+	sortMembersByName(data.Members)
+
 	return data, nil
+}
+
+// sortMembersByName sorts component members alphabetically by name
+func sortMembersByName(members []MemberData) {
+	sort.Slice(members, func(i, j int) bool {
+		return members[i].Name < members[j].Name
+	})
 }
 
 // parseComponentTypeName extracts the readable name from component type
